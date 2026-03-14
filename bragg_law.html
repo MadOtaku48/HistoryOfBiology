@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bragg's Law - X선 회절 애니메이션</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a1a;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    text-align: center;
+    padding: 12px 20px 8px;
+    background: linear-gradient(135deg, #1a1a3e, #0d2137);
+    border-bottom: 1px solid #2a4a6a;
+  }
+  header h1 {
+    font-size: 22px;
+    background: linear-gradient(90deg, #60c0ff, #a0e0ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 1px;
+  }
+  header p { font-size: 12px; color: #7a9ab8; margin-top: 2px; }
+
+  .main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  canvas {
+    flex: 1;
+    display: block;
+    min-height: 0;
+  }
+
+  .controls {
+    background: linear-gradient(0deg, #0d1520, #111a2a);
+    border-top: 1px solid #2a4a6a;
+    padding: 12px 30px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .control-group label {
+    font-size: 13px;
+    color: #8ab4d4;
+    white-space: nowrap;
+  }
+  .control-group .value {
+    font-size: 14px;
+    font-weight: bold;
+    color: #60d0ff;
+    min-width: 50px;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 160px;
+    height: 6px;
+    background: #1a2a3a;
+    border-radius: 3px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #40a0ff, #2080dd);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(64, 160, 255, 0.5);
+  }
+
+  .status-box {
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+  }
+  .status-constructive {
+    background: rgba(0, 255, 100, 0.15);
+    border: 1px solid rgba(0, 255, 100, 0.4);
+    color: #40ff80;
+  }
+  .status-destructive {
+    background: rgba(255, 60, 60, 0.15);
+    border: 1px solid rgba(255, 60, 60, 0.4);
+    color: #ff6060;
+  }
+  .status-partial {
+    background: rgba(255, 200, 40, 0.15);
+    border: 1px solid rgba(255, 200, 40, 0.4);
+    color: #ffc830;
+  }
+
+  .formula-box {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #a0d0f0;
+    padding: 4px 12px;
+    background: rgba(30, 60, 90, 0.5);
+    border-radius: 8px;
+    border: 1px solid #2a4a6a;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bragg's Law: nλ = 2d sinθ</h1>
+  <p>X선 회절과 보강/상쇄 간섭 | 1913 W.H. Bragg & W.L. Bragg</p>
+</header>
+
+<div class="main-container">
+  <canvas id="canvas"></canvas>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>입사각 θ</label>
+      <input type="range" id="angleSlider" min="5" max="80" value="30" step="0.5">
+      <span class="value" id="angleValue">30.0°</span>
+    </div>
+    <div class="control-group">
+      <label>격자 간격 d</label>
+      <input type="range" id="dSlider" min="40" max="120" value="70" step="1">
+      <span class="value" id="dValue">70</span>
+    </div>
+    <div class="control-group">
+      <label>파장 λ</label>
+      <input type="range" id="lambdaSlider" min="15" max="80" value="40" step="1">
+      <span class="value" id="lambdaValue">40</span>
+    </div>
+    <div class="formula-box" id="formulaBox">
+      2d sinθ = 0.0 | nλ = 0.0 | Δ = 0.0
+    </div>
+    <div class="status-box status-partial" id="statusBox">부분 간섭</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const angleSlider = document.getElementById('angleSlider');
+const dSlider = document.getElementById('dSlider');
+const lambdaSlider = document.getElementById('lambdaSlider');
+const angleValue = document.getElementById('angleValue');
+const dValue = document.getElementById('dValue');
+const lambdaValue = document.getElementById('lambdaValue');
+const formulaBox = document.getElementById('formulaBox');
+const statusBox = document.getElementById('statusBox');
+
+let W, H;
+let time = 0;
+
+function resize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  W = canvas.width = canvasRect.width * devicePixelRatio;
+  H = canvas.height = canvasRect.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+function getParams() {
+  const theta = parseFloat(angleSlider.value);
+  const d = parseFloat(dSlider.value);
+  const lambda = parseFloat(lambdaSlider.value);
+  return { theta, d, lambda };
+}
+
+function updateLabels(theta, d, lambda) {
+  angleValue.textContent = theta.toFixed(1) + '°';
+  dValue.textContent = d.toFixed(0);
+  lambdaValue.textContent = lambda.toFixed(0);
+
+  const thetaRad = theta * Math.PI / 180;
+  const pathDiff = 2 * d * Math.sin(thetaRad);
+  const ratio = pathDiff / lambda;
+  const nClosest = Math.round(ratio);
+  const delta = Math.abs(ratio - nClosest);
+
+  formulaBox.textContent = `2d sinθ = ${pathDiff.toFixed(1)} | λ = ${lambda.toFixed(0)} | 2d sinθ/λ = ${ratio.toFixed(2)}`;
+
+  if (delta < 0.08) {
+    statusBox.textContent = `보강 간섭 (n=${nClosest})`;
+    statusBox.className = 'status-box status-constructive';
+  } else if (Math.abs(ratio - nClosest - 0.5) < 0.08 || Math.abs(ratio - nClosest + 0.5) < 0.08) {
+    statusBox.textContent = '상쇄 간섭';
+    statusBox.className = 'status-box status-destructive';
+  } else {
+    statusBox.textContent = '부분 간섭';
+    statusBox.className = 'status-box status-partial';
+  }
+}
+
+// Draw a sine wave along a direction
+function drawWave(x0, y0, angle, length, lambda, phase, amplitude, color, lineWidth) {
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  const nx = -dy;
+  const ny = dx;
+  const steps = Math.max(200, Math.floor(length / 1));
+
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * length;
+    const wave = amplitude * Math.sin(2 * Math.PI * (t / lambda) + phase);
+    const px = x0 + dx * t + nx * wave;
+    const py = y0 + dy * t + ny * wave;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
+// Draw atom
+function drawAtom(x, y, radius, color, glow) {
+  if (glow) {
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius * 3);
+    grad.addColorStop(0, glow);
+    grad.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 3, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  const grad2 = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.1, x, y, radius);
+  grad2.addColorStop(0, '#ffffff');
+  grad2.addColorStop(0.3, color);
+  grad2.addColorStop(1, '#111');
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = grad2;
+  ctx.fill();
+}
+
+function draw() {
+  const cw = W / devicePixelRatio;
+  const ch = H / devicePixelRatio;
+  ctx.clearRect(0, 0, cw, ch);
+
+  // Dark background with subtle grid
+  ctx.fillStyle = '#0a0e18';
+  ctx.fillRect(0, 0, cw, ch);
+
+  const { theta, d, lambda } = getParams();
+  const thetaRad = theta * Math.PI / 180;
+
+  updateLabels(theta, d, lambda);
+
+  // Layout
+  const centerX = cw * 0.42;
+  const row1Y = ch * 0.38;
+  const row2Y = row1Y + d;
+  const atomSpacing = 80;
+  const atomRadius = 8;
+  const nAtoms = Math.ceil(cw / atomSpacing) + 2;
+  const startAtomX = centerX - Math.floor(nAtoms / 2) * atomSpacing;
+
+  // Draw crystal planes (horizontal lines)
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(100, 150, 200, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, row1Y);
+  ctx.lineTo(cw, row1Y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, row2Y);
+  ctx.lineTo(cw, row2Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels for planes
+  ctx.font = '12px "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(100, 160, 220, 0.6)';
+  ctx.fillText('격자면 1', 10, row1Y - 8);
+  ctx.fillText('격자면 2', 10, row2Y - 8);
+
+  // d label with arrow
+  const dLabelX = cw - 50;
+  ctx.strokeStyle = 'rgba(255, 80, 80, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(dLabelX, row1Y);
+  ctx.lineTo(dLabelX, row2Y);
+  ctx.stroke();
+  // Arrow heads
+  ctx.beginPath();
+  ctx.moveTo(dLabelX - 5, row1Y + 8);
+  ctx.lineTo(dLabelX, row1Y);
+  ctx.lineTo(dLabelX + 5, row1Y + 8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(dLabelX - 5, row2Y - 8);
+  ctx.lineTo(dLabelX, row2Y);
+  ctx.lineTo(dLabelX + 5, row2Y - 8);
+  ctx.stroke();
+  ctx.fillStyle = '#ff5050';
+  ctx.font = 'bold 16px "Courier New", monospace';
+  ctx.fillText('d', dLabelX + 8, (row1Y + row2Y) / 2 + 5);
+
+  // Draw atoms
+  for (let i = 0; i < nAtoms; i++) {
+    const ax = startAtomX + i * atomSpacing;
+    drawAtom(ax, row1Y, atomRadius, '#4488cc', 'rgba(68,136,204,0.15)');
+    drawAtom(ax + atomSpacing * 0.5, row2Y, atomRadius, '#4488cc', 'rgba(68,136,204,0.15)');
+  }
+
+  // === X-ray beams ===
+  // Incident beam hits atom on row1 at point A
+  const hitAx = centerX;
+  const hitAy = row1Y;
+  // Incident beam hits atom on row2 at point B (shifted)
+  const hitBx = centerX + d / Math.tan(thetaRad) * 0.5; // approximate
+  const hitBy = row2Y;
+
+  // Actually, for Bragg geometry:
+  // Beam 1: comes in at angle theta to surface, hits point A on row1
+  // Beam 2: parallel beam, hits point B on row2
+  // The extra path is 2*d*sin(theta)
+
+  // Incident direction vector (going right and down at angle theta to horizontal)
+  const incDx = Math.cos(Math.PI - thetaRad); // going left to right, angled down
+  const incDy = Math.sin(Math.PI - thetaRad); // negative = up... let me think
+
+  // Let's define: beam comes from upper-left, going to lower-right
+  // angle theta is measured from the crystal surface (horizontal)
+  // so incident direction: (cos(pi-theta), sin(pi-theta)) ... no
+  // Actually, beam goes right and downward. Angle from horizontal = theta
+  // direction = (cos(-theta from horizontal but we want it going right)
+  // Let's just do: incoming from upper-left to impact point
+  // direction of incoming beam = (cos(alpha), sin(alpha)) where alpha is angle below horizontal
+  // = (cos(theta), sin(theta)) but pointing into surface...
+
+  // Simpler: beam travels from upper-left to lower-right
+  // The angle with the surface (horizontal) is theta
+  // So the beam direction is: dx=1, dy=tan(theta) normalized
+  const beamLen = 250;
+
+  // Point A: where beam 1 hits row1
+  const Ax = centerX - 30;
+  const Ay = row1Y;
+
+  // Point B: where beam 2 hits row2, directly below in the "Bragg geometry"
+  // B is at: we need to figure out where a parallel beam would hit row2
+  // The horizontal distance between where beam 1 and beam 2 cross row1
+  // For beam2 to hit row2, it crosses row1 at some point to the left of A,
+  // then continues to row2
+  // Actually let's place B below and to the right of A on row2:
+  // perpendicular from A to incident beam direction...
+  // Let me just use the standard geometry:
+
+  // Beam 1 hits A at (Ax, row1Y), reflects off
+  // Beam 2 passes through row1 and hits B at row2
+  // B is located so that the foot of perpendicular from A to beam2 defines the geometry
+  // For simplicity: B is directly below the point where beam 2 crosses between the planes
+  // Standard: B is at horizontal offset = d * cos(theta) / sin(theta)...
+  // Actually the extra path for beam2 = 2 * d * sin(theta), that's the key
+
+  // Let me use a cleaner geometric construction:
+  // Both beams are parallel, traveling at angle theta below horizontal (left to right)
+  const inAngle = thetaRad; // angle below horizontal for incoming
+  const inDirX = Math.cos(inAngle);   // positive = right
+  const inDirY = Math.sin(inAngle);   // positive = down
+
+  // Beam 1 hits A on row 1
+  // Beam 2 hits B on row 2
+  // B is positioned so that beam 2 is parallel to beam 1
+  // B should be to the right of A (beam enters from left, deeper layer atom is further right)
+  // Actually in Bragg reflection, the atom in row2 that contributes is the one
+  // closest to the perpendicular projection.
+
+  // Let's place B at: from A, go down by d, and right by d/tan(theta)
+  // This gives the standard triangle
+  const Bx = Ax + d * Math.cos(thetaRad) / Math.sin(thetaRad) * 0.5;
+  const By = row2Y;
+
+  // Wait, the standard Bragg geometry:
+  // Drop perpendicular from A to row2 => foot is C directly below A
+  // B is on row2, positioned so that angle ACB involves the path difference
+  // Actually the clean way:
+  // The perpendicular distance between the beams (not between planes!)
+  // defines the geometry. Let me just hardcode the standard picture:
+
+  // Point C = foot of perpendicular from A to row2 = (Ax, row2Y)
+  const Cx = Ax;
+  const Cy = row2Y;
+
+  // In Bragg geometry, B is the point on row2 where beam 2 hits
+  // The extra path = CB + BD where D is on row2, and angle = theta
+  // More precisely: if we drop perpendiculars from A to the incoming and outgoing beams at B...
+  //
+  // Standard derivation: extra path = 2 * d * sin(theta)
+  // The triangle: from A drop perpendicular to row2 at C.
+  // B is at distance d*cos(theta)/sin(theta) ... let me just draw it nicely.
+
+  // Let me use the textbook picture directly:
+  // Two parallel planes. Beam hits atom A on plane 1, and atom B on plane 2.
+  // The geometry has B directly below a point between the incoming and outgoing beams at A.
+  //
+  // For the animation, I'll just show:
+  // 1) Two parallel incoming beams at angle theta
+  // 2) They hit atoms on row1 (A) and row2 (B)
+  // 3) Two outgoing (reflected) beams at angle theta on the other side
+  // 4) Show the path difference geometrically
+
+  // Let me simplify: B is directly below A at (Ax, row2Y)
+  // Incoming beam 1 hits A, reflects at angle theta
+  // Incoming beam 2 goes through the gap, hits B, reflects at angle theta
+  // The extra path of beam 2 = AB_in + AB_out - horizontal_shortcut
+  // But in classic Bragg, the path diff = 2*d*sin(theta)
+
+  // OK let me just draw it properly with two impact points
+
+  // Beam 1 impact: A at (Ax, row1Y)
+  // Beam 2 impact: B at (Ax, row2Y) — directly below A
+  // Beam 2 incoming: comes from upper-left at angle theta to horizontal, hits B
+  // Beam 2 enters row1 at point E = B + (-beam_direction) * (d / sin(theta)) ...
+  // the beam crosses row1 at (Bx - d/tan(theta), row1Y)
+
+  // Let me just draw it step by step:
+  const Bx2 = Ax; // B directly below A
+  const By2 = row2Y;
+
+  // Beam 2 enters row1 at point E
+  const Ex = Bx2 - d / Math.tan(thetaRad);
+  const Ey = row1Y;
+
+  // Reflected beam 2 exits row1 at point F (symmetric)
+  const Fx = Bx2 + d / Math.tan(thetaRad);
+  const Fy = row1Y;
+
+  // Now draw the beams
+
+  // Phase computation
+  const pathDiff = 2 * d * Math.sin(thetaRad);
+  const phaseSpeed = 0.08;
+  const basePhase = time * phaseSpeed;
+
+  // Ratio for interference
+  const ratio = pathDiff / lambda;
+  const nClosest = Math.round(ratio);
+  const delta = Math.abs(ratio - nClosest);
+  const halfDelta = Math.abs(ratio - nClosest - 0.5);
+  const halfDelta2 = Math.abs(ratio - nClosest + 0.5);
+
+  // Interference quality: 0 = perfect constructive, 1 = perfect destructive
+  const fractional = ratio - Math.floor(ratio);
+  const interferenceParam = Math.min(fractional, 1 - fractional) * 2; // 0=constructive, 1=destructive
+
+  // === Draw incoming beams ===
+  const waveAmp = 8;
+  const waveWidth = 2;
+
+  // Incoming beam 1: from far left to A
+  const in1StartX = Ax - beamLen * Math.cos(thetaRad);
+  const in1StartY = Ay - beamLen * Math.sin(thetaRad);
+  const in1Len = beamLen;
+
+  // Draw the central ray (faint)
+  ctx.strokeStyle = 'rgba(60, 140, 255, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(in1StartX, in1StartY);
+  ctx.lineTo(Ax, Ay);
+  ctx.stroke();
+
+  // Wave along beam 1 incoming
+  drawWave(in1StartX, in1StartY, thetaRad, in1Len, lambda, -basePhase, waveAmp, 'rgba(80, 180, 255, 0.9)', waveWidth);
+
+  // Incoming beam 2: from far left to B (through E)
+  const in2Len = Math.sqrt((Bx2 - Ex + beamLen * Math.cos(thetaRad)) ** 2 + (By2 - Ey + beamLen * Math.sin(thetaRad)) ** 2);
+  const in2StartX = Ex - beamLen * Math.cos(thetaRad);
+  const in2StartY = Ey - beamLen * Math.sin(thetaRad);
+  const in2FullLen = Math.sqrt((Bx2 - in2StartX) ** 2 + (By2 - in2StartY) ** 2);
+
+  ctx.strokeStyle = 'rgba(60, 140, 255, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(in2StartX, in2StartY);
+  ctx.lineTo(Bx2, By2);
+  ctx.stroke();
+
+  drawWave(in2StartX, in2StartY, thetaRad, in2FullLen, lambda, -basePhase, waveAmp, 'rgba(80, 180, 255, 0.9)', waveWidth);
+
+  // === Reflected beams ===
+  const reflAngle = -thetaRad; // going up-right
+
+  // Reflected beam 1: from A going upper-right
+  ctx.strokeStyle = 'rgba(60, 140, 255, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(Ax, Ay);
+  ctx.lineTo(Ax + beamLen * Math.cos(thetaRad), Ay - beamLen * Math.sin(thetaRad));
+  ctx.stroke();
+
+  drawWave(Ax, Ay, -thetaRad, beamLen, lambda, -basePhase, waveAmp, 'rgba(100, 220, 100, 0.9)', waveWidth);
+
+  // Reflected beam 2: from B going upper-right (through F and beyond)
+  const ref2EndX = Fx + beamLen * Math.cos(thetaRad);
+  const ref2EndY = Fy - beamLen * Math.sin(thetaRad);
+  const ref2FullLen = Math.sqrt((ref2EndX - Bx2) ** 2 + (ref2EndY - By2) ** 2);
+
+  ctx.strokeStyle = 'rgba(60, 140, 255, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(Bx2, By2);
+  ctx.lineTo(ref2EndX, ref2EndY);
+  ctx.stroke();
+
+  // Phase of beam 2 reflected: extra path = 2*d*sin(theta)
+  const beam2Phase = -basePhase - (2 * Math.PI * pathDiff / lambda);
+  drawWave(Bx2, By2, -thetaRad, ref2FullLen, lambda, beam2Phase, waveAmp, 'rgba(100, 220, 100, 0.9)', waveWidth);
+
+  // === Draw path difference geometry ===
+  // Show triangle A-B with the extra path highlighted
+  // Lines from E to B and B to F (the extra path segments)
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = 'rgba(255, 200, 60, 0.5)';
+  ctx.lineWidth = 1.5;
+
+  // Perpendicular from A down to B
+  ctx.beginPath();
+  ctx.moveTo(Ax, Ay);
+  ctx.lineTo(Bx2, By2);
+  ctx.stroke();
+
+  // Draw the extra path segments in bold
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255, 100, 50, 0.8)';
+  ctx.lineWidth = 2.5;
+
+  // E to B (extra incoming path)
+  ctx.beginPath();
+  ctx.moveTo(Ex, Ey);
+  ctx.lineTo(Bx2, By2);
+  ctx.stroke();
+
+  // B to F (extra outgoing path)
+  ctx.beginPath();
+  ctx.moveTo(Bx2, By2);
+  ctx.lineTo(Fx, Fy);
+  ctx.stroke();
+
+  // Perpendicular markers from A to beam paths (showing where beam1 is "aligned")
+  // Drop perpendicular from A to line E-B
+  const perpAx1 = Ax - d * Math.sin(thetaRad) * Math.sin(thetaRad) / 1;
+  // Actually let me just mark the extra path = EB + BF
+  const EB = Math.sqrt((Bx2 - Ex) ** 2 + (By2 - Ey) ** 2);
+  const BF = Math.sqrt((Fx - Bx2) ** 2 + (Fy - By2) ** 2);
+
+  // Label: extra path
+  ctx.font = '12px "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(255, 140, 60, 0.9)';
+  const midPathX = (Ex + Bx2) / 2 - 15;
+  const midPathY = (Ey + By2) / 2;
+  ctx.save();
+  ctx.translate(midPathX, midPathY);
+  ctx.rotate(thetaRad);
+  ctx.fillText('d sinθ', -20, -8);
+  ctx.restore();
+
+  const midPath2X = (Bx2 + Fx) / 2 + 15;
+  const midPath2Y = (By2 + Fy) / 2;
+  ctx.save();
+  ctx.translate(midPath2X, midPath2Y);
+  ctx.rotate(-thetaRad);
+  ctx.fillText('d sinθ', -20, -8);
+  ctx.restore();
+
+  // θ angle arcs at A
+  ctx.strokeStyle = 'rgba(255, 255, 100, 0.6)';
+  ctx.lineWidth = 1.5;
+  const arcR = 35;
+  // Incoming angle arc (between horizontal left and incoming beam direction)
+  ctx.beginPath();
+  ctx.arc(Ax, Ay, arcR, Math.PI - thetaRad, Math.PI);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255, 255, 100, 0.8)';
+  ctx.font = '12px "Courier New", monospace';
+  ctx.fillText('θ', Ax - arcR - 14, Ay - 6);
+
+  // Outgoing angle arc
+  ctx.strokeStyle = 'rgba(255, 255, 100, 0.6)';
+  ctx.beginPath();
+  ctx.arc(Ax, Ay, arcR, 0, -thetaRad, true);
+  ctx.stroke();
+  ctx.fillText('θ', Ax + arcR + 4, Ay - 6);
+
+  // === Combined wave (interference result) ===
+  // Show the combined wave on the right side
+  const combX = cw * 0.75;
+  const combY = ch * 0.18;
+  const combLen = cw * 0.22;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.font = '13px "Segoe UI", sans-serif';
+  ctx.fillText('합성파 (Combined Wave)', combX, combY - 30);
+
+  // Background box
+  ctx.fillStyle = 'rgba(20, 30, 50, 0.6)';
+  ctx.strokeStyle = 'rgba(60, 100, 150, 0.3)';
+  ctx.lineWidth = 1;
+  const boxPad = 15;
+  ctx.beginPath();
+  ctx.roundRect(combX - boxPad, combY - 25, combLen + boxPad * 2, 50, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw combined wave
+  const combSteps = 200;
+  ctx.beginPath();
+  for (let i = 0; i <= combSteps; i++) {
+    const t = (i / combSteps) * combLen;
+    const phase1 = 2 * Math.PI * (t / lambda) - basePhase;
+    const phase2 = phase1 - (2 * Math.PI * pathDiff / lambda);
+    const y1 = Math.sin(phase1);
+    const y2 = Math.sin(phase2);
+    const combined = (y1 + y2) / 2;
+    const px = combX + t;
+    const py = combY + combined * 18;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+
+  // Color based on interference
+  if (interferenceParam < 0.15) {
+    ctx.strokeStyle = '#40ff80';
+    ctx.lineWidth = 3;
+  } else if (interferenceParam > 0.85) {
+    ctx.strokeStyle = '#ff4040';
+    ctx.lineWidth = 1;
+  } else {
+    ctx.strokeStyle = '#ffc040';
+    ctx.lineWidth = 2;
+  }
+  ctx.stroke();
+
+  // Amplitude indicator
+  const ampVal = Math.abs(Math.cos(Math.PI * pathDiff / lambda));
+  ctx.fillStyle = 'rgba(200, 220, 255, 0.5)';
+  ctx.font = '11px "Courier New", monospace';
+  ctx.fillText(`진폭: ${(ampVal * 2).toFixed(2)}A₀`, combX, combY + 35);
+
+  // === Diffraction pattern preview (bottom right) ===
+  const patR = 50;
+  const patCx = cw * 0.88;
+  const patCy = ch * 0.72;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.font = '12px "Segoe UI", sans-serif';
+  ctx.fillText('회절 패턴', patCx - 22, patCy - patR - 8);
+
+  // Dark circle background
+  ctx.beginPath();
+  ctx.arc(patCx, patCy, patR, 0, Math.PI * 2);
+  ctx.fillStyle = '#050510';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(80, 120, 160, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Center beam spot
+  const spotBrightness = ampVal * ampVal;
+  const spotGrad = ctx.createRadialGradient(patCx, patCy, 0, patCx, patCy, patR * 0.2);
+  spotGrad.addColorStop(0, `rgba(255, 255, 255, ${0.3 + spotBrightness * 0.7})`);
+  spotGrad.addColorStop(0.5, `rgba(100, 180, 255, ${spotBrightness * 0.5})`);
+  spotGrad.addColorStop(1, 'transparent');
+  ctx.beginPath();
+  ctx.arc(patCx, patCy, patR * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = spotGrad;
+  ctx.fill();
+
+  // Diffraction rings
+  for (let n = 1; n <= 3; n++) {
+    const ringR = patR * (0.25 + n * 0.2);
+    const nRatio = pathDiff / lambda;
+    const ringBright = Math.max(0, Math.pow(Math.cos(Math.PI * (nRatio - n)), 2) * 0.4 / n);
+    ctx.beginPath();
+    ctx.arc(patCx, patCy, ringR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(100, 180, 255, ${ringBright})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  // Scatter effect at atoms (pulsing when hit)
+  const pulsePhase = (time * 0.05) % (Math.PI * 2);
+  const pulseR = 15 + 8 * Math.sin(pulsePhase);
+  const pulseAlpha = 0.3 + 0.2 * Math.sin(pulsePhase);
+
+  // Scatter circles at A
+  ctx.beginPath();
+  ctx.arc(Ax, Ay, pulseR, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(Ax, Ay, pulseR * 1.5, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha * 0.5})`;
+  ctx.stroke();
+
+  // Scatter circles at B
+  ctx.beginPath();
+  ctx.arc(Bx2, By2, pulseR, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(Bx2, By2, pulseR * 1.5, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha * 0.5})`;
+  ctx.stroke();
+
+  // Re-draw hit atoms on top
+  drawAtom(Ax, Ay, atomRadius + 1, '#66aaee', 'rgba(100,180,255,0.3)');
+  drawAtom(Bx2, By2, atomRadius + 1, '#66aaee', 'rgba(100,180,255,0.3)');
+
+  // === Legend / Explanation text ===
+  const legendY = ch * 0.82;
+  ctx.font = '12px "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(180, 210, 240, 0.7)';
+
+  // Color legend
+  ctx.fillStyle = 'rgba(80, 180, 255, 0.9)';
+  ctx.fillRect(20, legendY, 20, 3);
+  ctx.fillStyle = 'rgba(180, 210, 240, 0.7)';
+  ctx.fillText('입사 X선', 45, legendY + 5);
+
+  ctx.fillStyle = 'rgba(100, 220, 100, 0.9)';
+  ctx.fillRect(120, legendY, 20, 3);
+  ctx.fillStyle = 'rgba(180, 210, 240, 0.7)';
+  ctx.fillText('반사 X선', 145, legendY + 5);
+
+  ctx.fillStyle = 'rgba(255, 100, 50, 0.8)';
+  ctx.fillRect(220, legendY, 20, 3);
+  ctx.fillStyle = 'rgba(180, 210, 240, 0.7)';
+  ctx.fillText('추가 경로 (2d sinθ)', 245, legendY + 5);
+
+  // Bragg equation display
+  ctx.font = 'bold 16px "Courier New", monospace';
+  const eqY = ch * 0.92;
+  const pathRatio = pathDiff / lambda;
+  const isConstructive = delta < 0.08;
+
+  if (isConstructive) {
+    ctx.fillStyle = '#40ff80';
+    ctx.fillText(`nλ = 2d sinθ  →  ${nClosest} × ${lambda.toFixed(0)} = ${(nClosest * lambda).toFixed(0)}  ≈  2 × ${d.toFixed(0)} × sin(${theta.toFixed(1)}°) = ${pathDiff.toFixed(1)}  ✓ 보강 간섭!`, 20, eqY);
+  } else {
+    ctx.fillStyle = 'rgba(180, 200, 220, 0.6)';
+    ctx.fillText(`2d sinθ = ${pathDiff.toFixed(1)}   λ = ${lambda.toFixed(0)}   2d sinθ/λ = ${pathRatio.toFixed(2)}  (정수가 아님 → 보강 간섭 X)`, 20, eqY);
+  }
+
+  // Animate
+  time++;
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
