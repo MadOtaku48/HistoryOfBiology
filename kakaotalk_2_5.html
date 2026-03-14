@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2강-5: 2008년 노벨화학상 단톡방</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+.page { min-height:100vh; display:flex; align-items:center; justify-content:center; background:#1a1a1a; font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
+.phone-frame { width:390px; height:844px; background:#fff; border-radius:44px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 0 0 3px #333,0 0 60px rgba(0,0,0,0.5); position:relative; }
+.status-bar { height:54px; background:#fff; display:flex; align-items:flex-end; justify-content:space-between; padding:0 32px 8px; font-size:15px; font-weight:600; color:#1a1a1a; flex-shrink:0; }
+.status-icons { font-size:11px; letter-spacing:1px; }
+.chat-screen { flex:1; display:flex; flex-direction:column; overflow:hidden; opacity:1; transition:opacity 0.5s ease; }
+.chat-screen.fading { opacity:0; }
+.chat-header { height:52px; background:#fff; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid #eee; }
+.header-left { width:40px; display:flex; align-items:center; }
+.header-center { flex:1; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px; }
+.header-title { font-size:16px; font-weight:600; color:#1a1a1a; }
+.header-count { font-size:13px; color:#999; }
+.header-right { width:70px; display:flex; align-items:center; justify-content:flex-end; gap:12px; }
+.chat-body { flex:1; background:#B2C7D9; overflow-y:auto; padding:12px 14px; scroll-behavior:smooth; }
+.chat-body::-webkit-scrollbar { display:none; }
+.chat-body { -ms-overflow-style:none; scrollbar-width:none; }
+.date-divider { display:flex; justify-content:center; margin:8px 0 16px; }
+.date-divider span { background:rgba(0,0,0,0.12); color:#fff; font-size:12px; padding:4px 12px; border-radius:12px; }
+.message-row { display:flex; align-items:flex-start; margin-bottom:6px; gap:6px; }
+.message-row.continuation { margin-top:-2px; }
+.avatar-col { width:40px; flex-shrink:0; display:flex; align-items:flex-start; justify-content:center; }
+.avatar-circle { width:40px; height:40px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:#fff; flex-shrink:0; }
+.bubble-col { max-width:calc(100% - 100px); display:flex; flex-direction:column; }
+.sender-name { font-size:12px; color:rgba(0,0,0,0.55); margin-bottom:3px; padding-left:2px; }
+.bubble { display:inline-block; padding:8px 12px; border-radius:14px; font-size:14px; line-height:1.45; word-break:break-word; white-space:pre-wrap; max-width:100%; width:fit-content; }
+.message-row.left .bubble { background:#fff; color:#1a1a1a; border-top-left-radius:4px; }
+.message-row.left.continuation .bubble { border-top-left-radius:14px; }
+.message-row.right { justify-content:flex-end; }
+.message-row.right .bubble-col { align-items:flex-end; }
+.message-row.right .bubble { background:#FEE500; color:#1a1a1a; border-top-right-radius:4px; }
+.message-row.right.continuation .bubble { border-top-right-radius:14px; }
+.system-msg { display:flex; justify-content:center; margin:12px 0; }
+.system-msg span { background:rgba(0,0,0,0.08); color:rgba(0,0,0,0.45); font-size:12px; padding:4px 12px; border-radius:12px; }
+@keyframes messageIn { 0%{opacity:0;transform:translateY(16px)} 100%{opacity:1;transform:translateY(0)} }
+.message-row.animate-in,.system-msg.animate-in,.replay-row.animate-in { animation:messageIn 0.35s ease-out forwards; }
+.replay-row { display:flex; justify-content:center; margin:24px 0 12px; }
+.replay-btn { background:rgba(0,0,0,0.25); color:#fff; border:none; padding:10px 28px; border-radius:20px; font-size:14px; font-weight:500; cursor:pointer; transition:background 0.2s; }
+.replay-btn:hover { background:rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="phone-frame">
+    <div class="status-bar"><span>9:41</span><span class="status-icons">&#9679;&#9679;&#9679;&#9679;</span></div>
+    <div class="chat-screen" id="chatScreen">
+      <div class="chat-header" id="chatHeader"></div>
+      <div class="chat-body" id="chatBody"></div>
+    </div>
+  </div>
+</div>
+<script>
+const profiles = {
+  nobel:     { name: '노벨상 수상 위원회', color: '#C9A644', initial: 'N' },
+  shimomura: { name: '시모무라 오사무', color: '#2ECC71', initial: '시' },
+  chalfie:   { name: '마틴 챌피', color: '#E74C3C', initial: '챌' },
+  tsien:     { name: '로저 치엔', color: '#9B59B6', initial: '치' },
+  prasher:   { name: '더글러스 프레셔', color: '#3498DB', initial: '프' },
+};
+
+const chatRooms = [
+  {
+    id: 1, title: '2008년 노벨화학상 단톡방', type: 'group', participantCount: 4, date: '2008년',
+    messages: [
+      { sender: 'nobel', text: '안녕하세요 노벨상 수상 위원회입니다.', side: 'left' },
+      { sender: 'nobel', text: '2008년 노벨화학상 수상자로….', side: 'left' },
+      { sender: 'nobel', text: 'GFP를 발견한 공로로', side: 'left' },
+      { sender: 'nobel', text: '시모무라 오사무 박사', side: 'left' },
+      { sender: 'shimomura', text: '난 화학자 아닌데', side: 'left' },
+      { sender: 'shimomura', text: '그리고 내 전문은 GFP가', side: 'left' },
+      { sender: 'shimomura', text: '아니라 발광현상인데', side: 'left' },
+      { sender: 'nobel', text: '마틴 챌피 박사', side: 'left' },
+      { sender: 'chalfie', text: '나는 선충 하는 생물학잔데', side: 'left' },
+      { sender: 'chalfie', text: '화학상을 주네ㅋ', side: 'left' },
+      { sender: 'nobel', text: '마지막으로', side: 'left' },
+      { sender: 'nobel', text: '로저 치엔 박사', side: 'left' },
+      { sender: 'nobel', text: '이상 3명입니다.', side: 'left' },
+      { sender: 'tsien', text: '난 화학자 맞음ㅋ', side: 'left' },
+      { sender: 'tsien', text: '근데 우리한테 GFP 유전자 준', side: 'left' },
+      { sender: 'tsien', text: '더글러스 프레셔는 요즘 뭐함?', side: 'left' },
+      { sender: 'tsien', text: '안 보이던데', side: 'left' },
+      { sender: 'chalfie', text: '몰러. 초청해볼까', side: 'left' },
+      { type: 'system', text: '더글러스 프레셔님이 입장하셨습니다.' },
+      { sender: 'tsien', text: '오랫만…님이 시료 보내줘서 우리 노벨상 탐', side: 'left' },
+      { sender: 'tsien', text: '노벨상 정원이 3명이라서 님은 못타서', side: 'left' },
+      { sender: 'tsien', text: '좀 미안한데..님 요즘 뭐하심?', side: 'left' },
+      { sender: 'prasher', text: '요즘 과학자 관두고', side: 'right' },
+      { sender: 'prasher', text: '먹고살려고 버스 운전하는데', side: 'right' },
+      { sender: 'prasher', text: '조케따…밥이나 사', side: 'right' },
+    ],
+  },
+];
+
+const INITIAL_DELAY=2000,SAME_SENDER_DELAY=700,DIFF_SENDER_DELAY=1800,ROOM_TRANSITION_DELAY=3000;
+let roomIndex=0,visibleCount=0,transitioning=false,done=false;
+const chatScreen=document.getElementById('chatScreen'),chatHeader=document.getElementById('chatHeader'),chatBody=document.getElementById('chatBody');
+function avatarHTML(p){return`<div class="avatar-circle" style="background:${p.color||'#888'}">${p.initial||'?'}</div>`;}
+function renderHeader(){const r=chatRooms[roomIndex];chatHeader.innerHTML=`<div class="header-left"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="header-center"><span class="header-title">${r.title}</span>${r.type==='group'?`<span class="header-count">${r.participantCount}</span>`:''}</div><div class="header-right"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#1A1A1A" stroke-width="2"/><path d="M16 16l4 4" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round"/></svg><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round"/></svg></div>`;}
+function renderMessages(){const r=chatRooms[roomIndex],msgs=r.messages.slice(0,visibleCount);let html=`<div class="date-divider"><span>${r.date}</span></div>`;msgs.forEach((msg,idx)=>{if(msg.type==='system'){const isNew=idx===visibleCount-1;html+=`<div class="system-msg${isNew?' animate-in':''}"><span>${msg.text}</span></div>`;return;}const p=profiles[msg.sender],showP=idx===0||msg.sender!==msgs[idx-1].sender||msgs[idx-1].type==='system',isNew=idx===visibleCount-1;const cls=['message-row',msg.side];if(isNew)cls.push('animate-in');if(!showP)cls.push('continuation');html+=`<div class="${cls.join(' ')}">`;if(msg.side==='left'){html+=`<div class="avatar-col">${showP?avatarHTML(p):''}</div>`;}html+=`<div class="bubble-col">`;if(msg.side==='left'&&showP)html+=`<div class="sender-name">${p.name}</div>`;html+=`<div class="bubble">${msg.text}</div>`;html+=`</div></div>`;});if(done)html+=`<div class="replay-row animate-in"><button class="replay-btn" onclick="restart()">다시 보기</button></div>`;html+=`<div id="bottom" style="height:20px"></div>`;chatBody.innerHTML=html;document.getElementById('bottom')?.scrollIntoView({behavior:'smooth'});}
+function scheduleNext(){if(transitioning||done)return;const r=chatRooms[roomIndex],msgs=r.messages;if(visibleCount===0){setTimeout(()=>{visibleCount=1;render();scheduleNext();},roomIndex===0?INITIAL_DELAY:1500);return;}if(visibleCount>=msgs.length){if(roomIndex<chatRooms.length-1){setTimeout(()=>{transitioning=true;chatScreen.classList.add('fading');setTimeout(()=>{roomIndex++;visibleCount=0;transitioning=false;chatScreen.classList.remove('fading');render();scheduleNext();},600);},ROOM_TRANSITION_DELAY);}else{done=true;render();}return;}const prev=msgs[visibleCount-1],next=msgs[visibleCount];const delay=(next.type==='system'||prev.type==='system')?1200:(next.sender!==prev.sender?DIFF_SENDER_DELAY:SAME_SENDER_DELAY);setTimeout(()=>{visibleCount++;render();scheduleNext();},delay);}
+function render(){renderHeader();renderMessages();}
+function restart(){roomIndex=0;visibleCount=0;transitioning=false;done=false;chatScreen.classList.remove('fading');render();scheduleNext();}
+render();scheduleNext();
+</script></body></html>
