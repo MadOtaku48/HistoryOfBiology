@@ -29,12 +29,12 @@
     z-index: 1;
     max-width: 1100px;
     margin: 0 auto;
-    padding: 60px 24px 80px;
+    padding: 50px 24px 80px;
   }
 
   header {
     text-align: center;
-    margin-bottom: 64px;
+    margin-bottom: 56px;
   }
 
   header h1 {
@@ -54,130 +54,153 @@
     letter-spacing: 4px;
   }
 
-  .timeline {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 40px;
+  /* === Lecture Sections === */
+  .lecture-section {
+    margin-bottom: 60px;
   }
 
-  .timeline::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: linear-gradient(to bottom, transparent, rgba(240,192,96,0.3) 10%, rgba(240,192,96,0.3) 90%, transparent);
-    transform: translateX(-50%);
+  .lecture-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .lecture-badge {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .lecture-badge .num { font-size: 22px; font-family: 'Cinzel', serif; }
+  .lecture-badge .label { font-size: 10px; letter-spacing: 1px; margin-top: 2px; }
+
+  .lecture-badge.l1 { background: linear-gradient(135deg, rgba(100,160,255,0.2), rgba(60,100,200,0.1)); border: 1px solid rgba(100,160,255,0.3); color: #80b8ff; }
+  .lecture-badge.l2 { background: linear-gradient(135deg, rgba(100,220,160,0.2), rgba(60,180,120,0.1)); border: 1px solid rgba(100,220,160,0.3); color: #70ddaa; }
+  .lecture-badge.l3 { background: linear-gradient(135deg, rgba(240,160,80,0.2), rgba(200,120,40,0.1)); border: 1px solid rgba(240,160,80,0.3); color: #f0b060; }
+
+  .lecture-info h2 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(18px, 3vw, 24px);
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .lecture-info .l1-color { color: #80b8ff; }
+  .lecture-info .l2-color { color: #70ddaa; }
+  .lecture-info .l3-color { color: #f0b060; }
+
+  .lecture-info .date {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+  }
+
+  /* === Cards Grid === */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
   }
 
   .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.4s ease;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
     position: relative;
-    display: flex;
-    align-items: center;
-    gap: 40px;
+    overflow: hidden;
   }
-
-  .card:nth-child(odd) { flex-direction: row; }
-  .card:nth-child(even) { flex-direction: row-reverse; }
-
-  .card-dot {
+  .card::before {
+    content: '';
     position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #f0c060;
-    box-shadow: 0 0 12px rgba(240,192,96,0.6), 0 0 30px rgba(240,192,96,0.2);
-    z-index: 2;
+    inset: 0;
+    border-radius: 16px;
+    opacity: 0;
+    transition: opacity 0.4s;
   }
-
-  .card-content {
-    flex: 1;
-    max-width: calc(50% - 48px);
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255,255,255,0.12);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
   }
+  .card:hover::before { opacity: 1; }
 
-  .card:nth-child(odd) .card-content { text-align: right; }
-  .card:nth-child(even) .card-content { text-align: left; }
-
-  .card-spacer {
-    flex: 1;
-    max-width: calc(50% - 48px);
-  }
+  .card.l1::before { background: linear-gradient(135deg, rgba(100,160,255,0.06), transparent); }
+  .card.l2::before { background: linear-gradient(135deg, rgba(100,220,160,0.06), transparent); }
+  .card.l3::before { background: linear-gradient(135deg, rgba(240,160,80,0.06), transparent); }
 
   .card-era {
     font-family: 'Cinzel', serif;
-    font-size: 13px;
-    color: #f0c060;
+    font-size: 12px;
     letter-spacing: 3px;
     margin-bottom: 8px;
   }
+  .card.l1 .card-era { color: rgba(100,160,255,0.7); }
+  .card.l2 .card-era { color: rgba(100,220,160,0.7); }
+  .card.l3 .card-era { color: rgba(240,160,80,0.7); }
 
   .card-title {
     font-family: 'Cinzel', serif;
-    font-size: clamp(20px, 3vw, 28px);
+    font-size: clamp(16px, 2.5vw, 20px);
     font-weight: 700;
     color: #f0e6d3;
     margin-bottom: 4px;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
   }
 
   .card-subtitle {
-    font-size: 14px;
-    color: rgba(255,255,255,0.45);
-    margin-bottom: 14px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 12px;
   }
 
   .card-desc {
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.8;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 20px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 16px;
   }
 
-  .card-link {
-    display: inline-block;
-    padding: 10px 28px;
-    background: rgba(240,192,96,0.08);
-    border: 1px solid rgba(240,192,96,0.25);
-    border-radius: 10px;
-    color: #f0c060;
-    text-decoration: none;
-    font-size: 14px;
+  .card-action {
+    font-size: 13px;
     font-weight: 400;
     letter-spacing: 1px;
-    transition: all 0.4s ease;
+    transition: all 0.3s;
   }
-
-  .card-link:hover {
-    background: rgba(240,192,96,0.18);
-    border-color: rgba(240,192,96,0.5);
-    box-shadow: 0 0 20px rgba(240,192,96,0.15);
-    transform: translateY(-2px);
-  }
+  .card.l1 .card-action { color: #80b8ff; }
+  .card.l2 .card-action { color: #70ddaa; }
+  .card.l3 .card-action { color: #f0b060; }
+  .card:hover .card-action { letter-spacing: 3px; }
 
   footer {
     text-align: center;
-    margin-top: 80px;
-    padding-top: 30px;
+    margin-top: 60px;
+    padding-top: 24px;
     border-top: 1px solid rgba(255,255,255,0.05);
   }
-
   footer p {
     font-size: 12px;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.2);
     letter-spacing: 1px;
   }
 
-  @media (max-width: 768px) {
-    .timeline::before { left: 20px; }
-    .card, .card:nth-child(even) { flex-direction: column; align-items: flex-start; padding-left: 48px; }
-    .card-dot { left: 20px; top: 24px; transform: translate(-50%, 0); }
-    .card-content, .card-spacer { max-width: 100%; text-align: left !important; }
-    .card-spacer { display: none; }
+  @media (max-width: 640px) {
+    .cards-grid { grid-template-columns: 1fr; }
+    .lecture-header { gap: 12px; }
+    .lecture-badge { width: 48px; height: 48px; }
+    .lecture-badge .num { font-size: 18px; }
   }
 </style>
 </head>
@@ -190,103 +213,112 @@
     <div class="subtitle">현대생물학사 — 충북대학교</div>
   </header>
 
-  <div class="timeline">
+  <!-- 1강: 강의 개요 / 과학의 탄생 -->
+  <section class="lecture-section">
+    <div class="lecture-header">
+      <div class="lecture-badge l1">
+        <span class="num">1</span>
+        <span class="label">LECTURE</span>
+      </div>
+      <div class="lecture-info">
+        <h2 class="l1-color">강의 개요 / 과학의 탄생</h2>
+        <div class="date">2026.3.5 — 천문학 모델의 역사</div>
+      </div>
+    </div>
+    <div class="cards-grid">
 
-    <div class="card">
-      <div class="card-content">
+      <a class="card l1" href="aristotle_model.html">
         <div class="card-era">BC 350</div>
         <div class="card-title">ARISTOTELIAN COSMOS</div>
         <div class="card-subtitle">아리스토텔레스 천동설 — 동심 천구 모델</div>
-        <div class="card-desc">
-          지구를 우주의 중심에 놓고, 모든 천체가 완벽한 동심원의 수정 천구 위에서 균일한 원운동을 한다.
-          가장 단순하고 우아하지만, 역행운동을 설명할 수 없다는 치명적 한계를 가진다.
-        </div>
-        <a class="card-link" href="aristotle_model.html">애니메이션 보기 &rarr;</a>
-      </div>
-      <div class="card-dot"></div>
-      <div class="card-spacer"></div>
-    </div>
+        <div class="card-desc">지구를 우주의 중심에 놓고, 모든 천체가 동심원의 수정 천구 위에서 균일한 원운동을 한다.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
 
-    <div class="card">
-      <div class="card-spacer"></div>
-      <div class="card-dot"></div>
-      <div class="card-content">
+      <a class="card l1" href="ptolemaic_model.html">
         <div class="card-era">AD 150</div>
         <div class="card-title">PTOLEMAIC SYSTEM</div>
         <div class="card-subtitle">프톨레마이오스 천동설 — 주전원·이심원 모델</div>
-        <div class="card-desc">
-          이심원(Deferent) 위에 주전원(Epicycle)을 추가하고, 이퀀트(Equant)를 도입하여
-          역행운동을 수학적으로 정밀하게 설명했다. 1400년간 서양 천문학의 표준 모델이었다.
-        </div>
-        <a class="card-link" href="ptolemaic_model.html">애니메이션 보기 &rarr;</a>
-      </div>
-    </div>
+        <div class="card-desc">이심원 위에 주전원을 추가하고 이퀀트를 도입하여 역행운동을 정밀하게 설명. 1400년간 표준 모델.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
 
-    <div class="card">
-      <div class="card-content">
+      <a class="card l1" href="copernican_model.html">
         <div class="card-era">AD 1543</div>
         <div class="card-title">COPERNICAN SYSTEM</div>
         <div class="card-subtitle">코페르니쿠스 지동설 — 태양중심 모델</div>
-        <div class="card-desc">
-          태양을 우주의 중심에 놓고, 지구를 포함한 행성들이 태양 주위를 공전한다.
-          역행운동이 궤도 속도 차이에 의한 상대운동으로 자연스럽게 설명된다.
-          여전히 원궤도를 사용했다는 한계가 남아 있다.
-        </div>
-        <a class="card-link" href="copernican_model.html">애니메이션 보기 &rarr;</a>
-      </div>
-      <div class="card-dot"></div>
-      <div class="card-spacer"></div>
-    </div>
+        <div class="card-desc">태양을 중심에 놓고 역행운동을 궤도 속도차에 의한 상대운동으로 자연스럽게 설명.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
 
-    <div class="card">
-      <div class="card-spacer"></div>
-      <div class="card-dot"></div>
-      <div class="card-content">
+      <a class="card l1" href="tycho_model.html">
         <div class="card-era">AD 1588</div>
         <div class="card-title">TYCHONIC SYSTEM</div>
         <div class="card-subtitle">티코 브라헤 절충 모델 — 지구-태양 이중 중심</div>
-        <div class="card-desc">
-          지구를 중심에 두되, 태양이 지구를 공전하고 나머지 행성들은 태양을 공전하는 절충 모델.
-          화성의 궤도와 태양의 궤도가 교차한다는 사실은 수정 천구 개념을 부정하는 증거가 되었다.
-          수학적으로 코페르니쿠스 모델과 동치이다.
-        </div>
-        <a class="card-link" href="tycho_model.html">애니메이션 보기 &rarr;</a>
-      </div>
-    </div>
+        <div class="card-desc">지구 중심에 태양이 공전하고 행성은 태양을 공전. 수학적으로 코페르니쿠스 모델과 동치.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
 
-    <div class="card">
-      <div class="card-content">
+      <a class="card l1" href="kepler_model.html">
         <div class="card-era">AD 1609</div>
         <div class="card-title">KEPLERIAN SYSTEM</div>
         <div class="card-subtitle">케플러의 행성 운동 법칙 — 타원 궤도</div>
-        <div class="card-desc">
-          티코 브라헤의 정밀한 관측 데이터를 분석하여 행성이 원이 아닌 타원 궤도를 따른다는 것을 발견했다.
-          세 가지 법칙으로 행성 운동을 완벽하게 기술했으며,
-          이는 후에 뉴턴의 만유인력 법칙의 기초가 되었다.
-        </div>
-        <a class="card-link" href="kepler_model.html">애니메이션 보기 &rarr;</a>
-      </div>
-      <div class="card-dot"></div>
-      <div class="card-spacer"></div>
-    </div>
+        <div class="card-desc">티코의 관측 데이터로 타원 궤도를 발견. 세 법칙으로 뉴턴 만유인력의 기초를 놓다.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
 
-    <div class="card">
-      <div class="card-spacer"></div>
-      <div class="card-dot"></div>
-      <div class="card-content">
+    </div>
+  </section>
+
+  <!-- 2강: 세포의 역사 -->
+  <section class="lecture-section">
+    <div class="lecture-header">
+      <div class="lecture-badge l2">
+        <span class="num">2</span>
+        <span class="label">LECTURE</span>
+      </div>
+      <div class="lecture-info">
+        <h2 class="l2-color">세포의 역사</h2>
+        <div class="date">2026.3.12 — 현미경과 세포 발견</div>
+      </div>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card l2" href="microscope_optics.html">
+        <div class="card-era">17C — 19C</div>
+        <div class="card-title">MICROSCOPE OPTICS</div>
+        <div class="card-subtitle">현미경의 광학적 개선 — 색수차에서 아포크로맷까지</div>
+        <div class="card-desc">단렌즈의 색수차 문제에서 아크로맷, 아포크로맷 렌즈까지. 현미경 광학의 발전 과정을 시각화.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 3강: 단백질의 역사 -->
+  <section class="lecture-section">
+    <div class="lecture-header">
+      <div class="lecture-badge l3">
+        <span class="num">3</span>
+        <span class="label">LECTURE</span>
+      </div>
+      <div class="lecture-info">
+        <h2 class="l3-color">단백질의 역사</h2>
+        <div class="date">2026.3.19 — X선 결정학과 단백질 구조</div>
+      </div>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card l3" href="bragg_law.html">
         <div class="card-era">AD 1913</div>
         <div class="card-title">BRAGG'S LAW</div>
         <div class="card-subtitle">브래그 법칙 — X선 회절과 결정 구조 분석</div>
-        <div class="card-desc">
-          브래그 부자(W.H. & W.L. Bragg)는 결정에 X선을 쏘았을 때 특정 각도에서 회절 신호가 증폭되는 현상을 발견했다.
-          nλ = 2d sinθ 조건을 만족할 때 보강 간섭이 일어나며,
-          이 원리는 단백질 X선 결정학의 기초가 되었다.
-        </div>
-        <a class="card-link" href="bragg_law.html">애니메이션 보기 &rarr;</a>
-      </div>
-    </div>
+        <div class="card-desc">결정에 X선을 쏘면 nλ = 2d sinθ 조건에서 보강 간섭이 발생. 단백질 X선 결정학의 기초.</div>
+        <div class="card-action">애니메이션 보기 &rarr;</div>
+      </a>
 
-  </div>
+    </div>
+  </section>
 
   <footer>
     <p>현대생물학사 &middot; 충북대학교 &middot; Built with HTML5 Canvas</p>
