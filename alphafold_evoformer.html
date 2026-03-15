@@ -1,0 +1,2750 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaFold2: Evoformer & Structure Module</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a1a;
+  --bg2: #0f0f2a;
+  --msa-color: #4488ff;
+  --pair-color: #44cc88;
+  --struct-color: #ff8844;
+  --accent: #aa66ff;
+  --text: #e0e0f0;
+  --text-dim: #8888aa;
+  --glow-msa: 0 0 20px rgba(68,136,255,0.4);
+  --glow-pair: 0 0 20px rgba(68,204,136,0.4);
+  --glow-struct: 0 0 20px rgba(255,136,68,0.4);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 60px 20px 30px;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(68,136,255,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.header h1 {
+  font-size: 2.8em;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--msa-color), var(--pair-color), var(--struct-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 10px;
+}
+.header .subtitle {
+  font-size: 1.1em;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(180deg, var(--bg) 60%, transparent);
+  padding-bottom: 30px;
+}
+.tab-btn {
+  padding: 12px 30px;
+  border: 1px solid #333;
+  border-radius: 30px;
+  background: rgba(15,15,42,0.9);
+  color: var(--text-dim);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+}
+.tab-btn:hover { border-color: #555; color: var(--text); }
+.tab-btn.active-evo {
+  border-color: var(--msa-color);
+  color: var(--msa-color);
+  box-shadow: var(--glow-msa);
+  background: rgba(68,136,255,0.1);
+}
+.tab-btn.active-struct {
+  border-color: var(--struct-color);
+  color: var(--struct-color);
+  box-shadow: var(--glow-struct);
+  background: rgba(255,136,68,0.1);
+}
+.tab-btn.active-pipeline {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 20px rgba(170,102,255,0.4);
+  background: rgba(170,102,255,0.1);
+}
+
+/* Sections */
+.section { display: none; padding: 20px; max-width: 1400px; margin: 0 auto; }
+.section.active { display: block; }
+
+.section-title {
+  font-size: 1.8em;
+  font-weight: 700;
+  margin: 30px 0 15px;
+  padding-left: 15px;
+  border-left: 4px solid;
+}
+.section-title.msa-title { border-color: var(--msa-color); color: var(--msa-color); }
+.section-title.pair-title { border-color: var(--pair-color); color: var(--pair-color); }
+.section-title.struct-title { border-color: var(--struct-color); color: var(--struct-color); }
+
+.desc {
+  color: var(--text-dim);
+  font-size: 0.95em;
+  margin-bottom: 20px;
+  max-width: 900px;
+  line-height: 1.8;
+}
+.desc strong { color: var(--text); }
+
+/* Canvas containers */
+.canvas-container {
+  position: relative;
+  width: 100%;
+  margin: 20px 0 40px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.canvas-container canvas {
+  display: block;
+  width: 100%;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+.controls label {
+  color: var(--text-dim);
+  font-size: 0.85em;
+}
+.controls input[type="range"] {
+  -webkit-appearance: none;
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  outline: none;
+}
+.controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--msa-color);
+  cursor: pointer;
+}
+.play-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--msa-color);
+  border-radius: 20px;
+  background: rgba(68,136,255,0.1);
+  color: var(--msa-color);
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.9em;
+  transition: all 0.3s;
+}
+.play-btn:hover { background: rgba(68,136,255,0.2); }
+
+/* Info tooltip */
+.info-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  max-width: 350px;
+  padding: 15px 20px;
+  background: rgba(15,15,42,0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  font-size: 0.85em;
+  color: var(--text-dim);
+  backdrop-filter: blur(10px);
+  z-index: 200;
+  transition: opacity 0.3s, transform 0.3s;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+.info-panel.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.info-panel h4 {
+  color: var(--text);
+  margin-bottom: 5px;
+  font-size: 1em;
+}
+
+/* Iteration counter */
+.iter-counter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4em;
+  color: var(--msa-color);
+  text-align: center;
+  padding: 10px;
+}
+.iter-counter span { color: var(--text-dim); font-size: 0.7em; }
+
+/* Pipeline */
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+  padding: 40px 20px;
+}
+.pipeline-step {
+  padding: 18px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.95em;
+  text-align: center;
+  min-width: 140px;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.5s;
+  opacity: 0.3;
+}
+.pipeline-step.lit {
+  opacity: 1;
+  transform: scale(1.05);
+}
+.pipeline-arrow {
+  font-size: 1.5em;
+  color: var(--text-dim);
+  padding: 0 5px;
+  transition: color 0.5s;
+}
+.pipeline-arrow.lit { color: var(--text); }
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 25px;
+  flex-wrap: wrap;
+  padding: 15px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
+.legend-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+}
+
+/* Cards for explanations */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 20px 0 40px;
+}
+.card {
+  padding: 25px;
+  background: var(--bg2);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.card:hover {
+  border-color: rgba(255,255,255,0.15);
+}
+.card h3 {
+  font-size: 1.1em;
+  margin-bottom: 10px;
+}
+.card p {
+  font-size: 0.88em;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+.card .tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 10px;
+}
+.tag-msa { background: rgba(68,136,255,0.15); color: var(--msa-color); }
+.tag-pair { background: rgba(68,204,136,0.15); color: var(--pair-color); }
+.tag-struct { background: rgba(255,136,68,0.15); color: var(--struct-color); }
+
+@media (max-width: 768px) {
+  .header h1 { font-size: 1.8em; }
+  .tab-btn { padding: 8px 16px; font-size: 0.85em; }
+  .card-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AlphaFold2 핵심 구조</h1>
+  <div class="subtitle">Evoformer & Structure Module  |  현대생물학사 시각화 자료</div>
+</div>
+
+<nav class="tab-nav">
+  <button class="tab-btn active-evo" onclick="switchTab('evoformer')" id="tab-evo">Evoformer 모듈</button>
+  <button class="tab-btn" onclick="switchTab('structure')" id="tab-struct">Structure 모듈</button>
+  <button class="tab-btn" onclick="switchTab('pipeline')" id="tab-pipe">전체 파이프라인 (Pipeline)</button>
+</nav>
+
+<!-- ============ EVOFORMER SECTION ============ -->
+<section class="section active" id="sec-evoformer">
+
+  <div style="background:linear-gradient(135deg, rgba(68,136,255,0.08), rgba(68,204,136,0.05)); border:1px solid rgba(68,136,255,0.2); border-radius:12px; padding:20px 24px; margin-bottom:32px;">
+    <h2 style="font-size:18px; color:#80b8ff; margin-bottom:10px; letter-spacing:1px;">Evoformer — 진화 정보에서 구조 정보를 추출하다</h2>
+    <p style="font-size:14px; line-height:1.9; color:rgba(255,255,255,0.65);">
+      단백질의 아미노산 서열은 진화 과정에서 <strong style="color:#80b8ff">공진화(coevolution)</strong> 패턴을 남깁니다.
+      구조적으로 가까이 접촉하는 잔기들은 함께 변이하는 경향이 있기 때문입니다.
+      <strong>Evoformer</strong>는 수천 개의 상동 서열(homologous sequences)로 구성된
+      <strong style="color:#80b8ff">다중 서열 정렬(MSA)</strong>로부터 이러한 공진화 패턴을 읽어내어,
+      <strong style="color:#44cc88">"어떤 잔기 쌍이 3D 공간에서 가까이 있는가"</strong>라는
+      구조적 정보를 추출합니다.
+      이 과정은 MSA 표현과 쌍(Pair) 표현 사이의 양방향 정보 교환을 <strong>48번 반복</strong>하며,
+      반복할수록 더 정교한 구조 정보가 축적됩니다.
+    </p>
+  </div>
+
+  <h2 class="section-title msa-title">MSA 표현 (Multiple Sequence Alignment Representation)</h2>
+  <p class="desc">
+    <strong>다중 서열 정렬(MSA)</strong>은 진화적으로 관련된 단백질 서열들을 정렬한 것입니다.
+    행(row)은 각 서열, 열(column)은 잔기(residue) 위치를 나타냅니다.
+    Evoformer는 <strong>행 방향 어텐션</strong>(같은 위치에서 서열 간 정보 교환)과
+    <strong>열 방향 어텐션</strong>(같은 서열 내 위치 간 패턴 학습)을 번갈아 수행합니다.
+    텐서 형태: <code style="color:var(--msa-color)">(N<sub>seq</sub> &times; N<sub>res</sub> &times; 256)</code>
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-msa" onclick="toggleMSA()">&#9654; 재생</button>
+    <label>속도: <input type="range" id="speed-msa" min="0.2" max="3" step="0.1" value="1"></label>
+    <label style="margin-left:auto; font-family:'JetBrains Mono',monospace; color:var(--msa-color)">
+      행 어텐션 &#8596; 열 어텐션
+    </label>
+  </div>
+  <div class="canvas-container">
+    <canvas id="canvas-msa" height="420"></canvas>
+  </div>
+
+  <h2 class="section-title pair-title">쌍 표현 (Pair Representation)</h2>
+  <p class="desc">
+    <strong>쌍 표현</strong>은 모든 잔기 쌍 (i, j) 사이의 관계를 인코딩하는 2D 행렬입니다.
+    텐서 형태: <code style="color:var(--pair-color)">(N<sub>res</sub> &times; N<sub>res</sub> &times; 128)</code>.
+    <strong>삼각 업데이트(Triangular Update)</strong>: 쌍 (i,j)의 정보를 업데이트할 때,
+    제3의 잔기 k를 경유하는 삼각형 경로 (i,k)→(k,j)를 통해 정보가 전달됩니다.
+    이는 <strong>삼각 부등식</strong>(거리 관계의 일관성)을 보장합니다.
+    <strong>외적 평균(Outer Product Mean)</strong>을 통해 MSA의 정보가 쌍 표현으로 전달됩니다.
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-pair" onclick="togglePair()" style="border-color:var(--pair-color);color:var(--pair-color);background:rgba(68,204,136,0.1)">&#9654; 재생</button>
+    <label>속도: <input type="range" id="speed-pair" min="0.2" max="3" step="0.1" value="1"></label>
+  </div>
+  <div class="canvas-container">
+    <canvas id="canvas-pair" height="480"></canvas>
+  </div>
+
+  <h2 class="section-title msa-title">양방향 정보 교환 (Bidirectional Exchange)</h2>
+  <p class="desc">
+    Evoformer 블록 내에서 MSA 표현과 쌍 표현은 <strong>양방향으로</strong> 정보를 교환합니다.
+    이 과정이 <strong>48개 블록</strong>에 걸쳐 반복되며, 서열 정보와 구조 정보가 점진적으로 정제됩니다.
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-bidir" onclick="toggleBidir()">&#9654; 재생</button>
+    <label>속도: <input type="range" id="speed-bidir" min="0.2" max="3" step="0.1" value="1"></label>
+  </div>
+  <div class="iter-counter">블록 (Block): <span id="iter-val">0</span> / 48 <span>반복</span></div>
+  <div class="canvas-container">
+    <canvas id="canvas-bidir" height="400"></canvas>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3 style="color:var(--msa-color)">행 방향 어텐션 (Row-wise Attention)</h3>
+      <p>각 잔기 위치(열)에서, 서로 다른 서열들이 정보를 교환합니다.
+         이를 통해 "이 위치에서 진화적으로 어떤 아미노산이 보존되는가?"를 학습합니다.
+         쌍 표현의 편향(bias)이 추가되어 구조 정보가 MSA 업데이트에 반영됩니다.</p>
+      <div class="tag tag-msa">Row Attention with Pair Bias</div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--msa-color)">열 방향 어텐션 (Column-wise Attention)</h3>
+      <p>각 서열(행) 내에서, 잔기 위치들이 서로 정보를 교환합니다.
+         "이 서열에서 위치 i와 위치 j는 어떤 관계인가?"를 학습하며,
+         이는 공진화(coevolution) 패턴을 포착하는 핵심 메커니즘입니다.</p>
+      <div class="tag tag-msa">Column Attention</div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--pair-color)">삼각 곱셈 업데이트 (Triangular Multiplicative Update)</h3>
+      <p>쌍 (i,j)를 업데이트할 때 중간 잔기 k를 경유합니다.
+         <strong>"Outgoing"</strong>: (i,k)와 (j,k)로부터 → (i,j) 업데이트.
+         <strong>"Incoming"</strong>: (k,i)와 (k,j)로부터 → (i,j) 업데이트.
+         이는 그래프에서 삼각형 닫힘(triangle closure)과 유사합니다.</p>
+      <div class="tag tag-pair">Triangular Multiplicative Update</div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--pair-color)">삼각 어텐션 (Triangular Attention)</h3>
+      <p><strong>"Starting node"</strong>: 행 i를 공유하는 모든 쌍 (i,j)와 (i,k) 간의 어텐션.
+         <strong>"Ending node"</strong>: 열 j를 공유하는 모든 쌍 (i,j)와 (k,j) 간의 어텐션.
+         이를 통해 쌍 표현의 일관성이 유지됩니다.</p>
+      <div class="tag tag-pair">Triangular Self-Attention</div>
+    </div>
+  </div>
+
+  <!-- 삼각 업데이트 심화 설명 -->
+  <div style="background:linear-gradient(135deg, rgba(68,204,136,0.06), rgba(68,136,255,0.04)); border:1px solid rgba(68,204,136,0.2); border-radius:14px; padding:24px 28px; margin:24px 0 8px;">
+    <h3 style="color:var(--pair-color); font-size:17px; margin-bottom:14px; letter-spacing:0.5px;">
+      왜 삼각 업데이트가 필요한가? — 거리의 기하학적 일관성
+    </h3>
+    <p style="font-size:13.5px; line-height:2; color:rgba(255,255,255,0.65); margin-bottom:14px;">
+      쌍 표현은 잔기 i와 j 사이의 관계(거리, 접촉 등)를 인코딩합니다.
+      그런데 단백질은 <strong style="color:#44cc88">3D 공간에 존재하는 물리적 객체</strong>이므로,
+      모든 잔기 쌍의 거리는 반드시 <strong style="color:#44cc88">삼각 부등식</strong>을 만족해야 합니다:
+    </p>
+    <div style="text-align:center; margin:16px 0; padding:14px; background:rgba(0,0,0,0.3); border-radius:10px; border:1px solid rgba(68,204,136,0.15);">
+      <span style="font-family:'JetBrains Mono',monospace; font-size:18px; color:#44cc88; letter-spacing:1px;">
+        d(i, j) &le; d(i, k) + d(k, j)
+      </span>
+      <br>
+      <span style="font-size:12px; color:rgba(255,255,255,0.4); margin-top:4px; display:inline-block;">
+        임의의 세 잔기 i, j, k에 대해 항상 성립
+      </span>
+    </div>
+
+    <p style="font-size:13.5px; line-height:2; color:rgba(255,255,255,0.65); margin-bottom:14px;">
+      만약 쌍 표현을 각 (i,j)에 대해 <strong style="color:#ff8888">독립적으로만</strong> 업데이트하면 어떻게 될까요?
+      아래 그림에서 삼각 부등식이 <strong style="color:#44cc88">만족</strong>되는 경우와 <strong style="color:#ff6666">위반</strong>되는 경우를 비교해 보세요.
+    </p>
+    <div style="display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+      <canvas id="canvas-tri-ok" width="400" height="320" style="flex:1; min-width:280px; border-radius:12px; border:1px solid rgba(68,204,136,0.2); background:rgba(0,0,0,0.3);"></canvas>
+      <canvas id="canvas-tri-fail" width="400" height="320" style="flex:1; min-width:280px; border-radius:12px; border:1px solid rgba(255,80,80,0.2); background:rgba(0,0,0,0.3);"></canvas>
+    </div>
+
+    <p style="font-size:13.5px; line-height:2; color:rgba(255,255,255,0.65); margin-bottom:14px;">
+      구체적으로 두 방향의 삼각 업데이트가 번갈아 적용됩니다:
+    </p>
+    <div style="display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:200px; text-align:center; padding:14px; background:rgba(0,0,0,0.25); border-radius:10px; border:1px solid rgba(68,204,136,0.12);">
+        <div style="font-size:13px; color:#44cc88; font-weight:bold; margin-bottom:8px;">Outgoing Edges</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:22px; color:rgba(255,255,255,0.7); margin:8px 0;">
+          <span style="color:#ff9955">(i,k)</span> &times; <span style="color:#ff9955">(j,k)</span> → <span style="color:#44cc88">(i,j)</span>
+        </div>
+        <div style="font-size:11.5px; color:rgba(255,255,255,0.45); line-height:1.7;">
+          k에서 나가는(outgoing) 간선들의<br>
+          정보를 합산하여 (i,j) 갱신
+        </div>
+      </div>
+      <div style="flex:1; min-width:200px; text-align:center; padding:14px; background:rgba(0,0,0,0.25); border-radius:10px; border:1px solid rgba(68,204,136,0.12);">
+        <div style="font-size:13px; color:#44cc88; font-weight:bold; margin-bottom:8px;">Incoming Edges</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:22px; color:rgba(255,255,255,0.7); margin:8px 0;">
+          <span style="color:#ff9955">(k,i)</span> &times; <span style="color:#ff9955">(k,j)</span> → <span style="color:#44cc88">(i,j)</span>
+        </div>
+        <div style="font-size:11.5px; color:rgba(255,255,255,0.45); line-height:1.7;">
+          k로 들어오는(incoming) 간선들의<br>
+          정보를 합산하여 (i,j) 갱신
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:14px 18px; background:rgba(68,136,255,0.06); border:1px solid rgba(68,136,255,0.15); border-radius:10px;">
+      <p style="font-size:13px; line-height:1.9; color:rgba(255,255,255,0.6); margin:0;">
+        <strong style="color:#80b8ff;">핵심 의의:</strong>
+        삼각 업데이트는 <strong style="color:#80b8ff;">"단백질 구조는 유클리드 공간에 임베딩 가능해야 한다"</strong>는
+        물리적 제약을 신경망 아키텍처에 직접 반영한
+        <strong style="color:#80b8ff;">귀납적 편향(inductive bias)</strong>입니다.
+        이 설계 덕분에 Evoformer는 단순한 패턴 매칭이 아닌,
+        물리적으로 실현 가능한 3D 구조에 대응하는 거리 행렬을 학습할 수 있습니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STRUCTURE SECTION ============ -->
+<section class="section" id="sec-structure">
+
+  <div style="background:linear-gradient(135deg, rgba(255,136,68,0.08), rgba(255,200,100,0.04)); border:1px solid rgba(255,136,68,0.2); border-radius:12px; padding:20px 24px; margin-bottom:32px;">
+    <h2 style="font-size:18px; color:#ff9955; margin-bottom:10px; letter-spacing:1px;">Structure Module — 추상적 정보를 실제 3D 구조로 변환하다</h2>
+    <p style="font-size:14px; line-height:1.9; color:rgba(255,255,255,0.65);">
+      Evoformer가 추출한 구조 정보는 아직 <strong style="color:#ff9955">추상적인 수치(텐서)</strong>일 뿐,
+      실제 원자의 3D 좌표가 아닙니다.
+      <strong>Structure Module</strong>은 이 정보를 받아 각 잔기에
+      <strong style="color:#ff9955">로컬 좌표 프레임(회전 + 이동)</strong>을 부여하고,
+      <strong style="color:#ffcc66">IPA(Invariant Point Attention)</strong>를 통해
+      3D 공간 정보와 추상적 특징을 동시에 활용하여 프레임을 반복적으로 업데이트합니다.
+      처음에는 무작위 상태에서 시작하지만, <strong>8회 반복</strong>을 거치며
+      단백질이 마치 실제로 접히듯 점진적으로 올바른 3D 구조로 수렴합니다.
+      최종적으로 백본(backbone) 좌표가 결정되면, 각 잔기의 곁사슬(side chain) 비틀림 각도(χ angle)를
+      예측하여 완전한 단백질 구조를 생성합니다.
+    </p>
+  </div>
+
+  <h2 class="section-title struct-title">IPA: 불변점 어텐션 (Invariant Point Attention)</h2>
+  <p class="desc">
+    <strong>IPA</strong>는 Structure Module의 핵심입니다. 각 잔기는 <strong>로컬 좌표 프레임</strong>(회전 + 이동)을 가지며,
+    어텐션 계산에 <strong>추상적 특징</strong>과 <strong>3D 위치 정보</strong>를 모두 사용합니다.
+    핵심 성질: 전체 구조를 회전/이동시켜도 어텐션 값이 변하지 않습니다 (<strong>SE(3) 불변성</strong>).
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-ipa" onclick="toggleIPA()" style="border-color:var(--struct-color);color:var(--struct-color);background:rgba(255,136,68,0.1)">&#9654; 재생</button>
+    <label>속도: <input type="range" id="speed-ipa" min="0.2" max="3" step="0.1" value="1"></label>
+  </div>
+  <div class="canvas-container">
+    <canvas id="canvas-ipa" height="420"></canvas>
+  </div>
+
+  <!-- IPA 심화 설명 -->
+  <div style="background:linear-gradient(135deg, rgba(255,136,68,0.06), rgba(255,200,100,0.03)); border:1px solid rgba(255,136,68,0.2); border-radius:14px; padding:24px 28px; margin:20px 0 28px;">
+    <h3 style="color:#ff9955; font-size:17px; margin-bottom:14px; letter-spacing:0.5px;">
+      IPA는 왜 필요하고, 어떻게 작동하는가?
+    </h3>
+
+    <p style="font-size:13.5px; line-height:2; color:rgba(255,255,255,0.65); margin-bottom:16px;">
+      일반적인 Transformer의 어텐션은 <strong style="color:#ff9955">추상적 벡터(임베딩)</strong>만으로 "이 잔기와 저 잔기가 얼마나 관련 있는가?"를
+      계산합니다. 하지만 단백질 구조를 예측하려면 <strong style="color:#ff9955">3D 공간에서의 실제 위치</strong>도 고려해야 합니다.
+      예를 들어, 서열상 멀리 떨어진 두 잔기가 3D에서는 매우 가까울 수 있습니다. IPA는 이 두 가지 정보를 동시에 사용합니다.
+    </p>
+
+    <div style="font-size:14px; color:#ffcc66; font-weight:bold; margin-bottom:10px;">IPA 어텐션의 3가지 구성 요소</div>
+
+    <div style="display:flex; gap:14px; margin-bottom:20px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:180px; padding:14px; background:rgba(0,0,0,0.3); border-radius:10px; border:1px solid rgba(255,136,68,0.15);">
+        <div style="font-size:13px; color:#ff9955; font-weight:bold; margin-bottom:6px;">① 일반 어텐션</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.55); line-height:1.8;">
+          Evoformer가 만든 추상적 특징 벡터 <strong style="color:#ffcc88">s<sub>i</sub></strong>로부터
+          Query, Key, Value를 계산합니다.
+          이것은 일반적인 Transformer와 동일합니다.
+        </div>
+        <div style="text-align:center; margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:12px; color:rgba(255,200,150,0.6);">
+          q<sub>i</sub> · k<sub>j</sub>
+        </div>
+      </div>
+      <div style="flex:1; min-width:180px; padding:14px; background:rgba(0,0,0,0.3); border-radius:10px; border:1px solid rgba(255,136,68,0.15);">
+        <div style="font-size:13px; color:#ff9955; font-weight:bold; margin-bottom:6px;">② 쌍 표현 편향</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.55); line-height:1.8;">
+          Evoformer의 <strong style="color:#44cc88">쌍 표현 z<sub>ij</sub></strong>가
+          어텐션에 편향(bias)으로 추가됩니다.
+          "이 두 잔기는 가까울 것이다"라는 정보가 반영됩니다.
+        </div>
+        <div style="text-align:center; margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:12px; color:rgba(100,220,160,0.6);">
+          + b<sub>ij</sub> (from z<sub>ij</sub>)
+        </div>
+      </div>
+      <div style="flex:1; min-width:180px; padding:14px; background:rgba(0,0,0,0.3); border-radius:10px; border-left:3px solid #ff9955; border-top:1px solid rgba(255,136,68,0.15); border-right:1px solid rgba(255,136,68,0.15); border-bottom:1px solid rgba(255,136,68,0.15);">
+        <div style="font-size:13px; color:#ff9955; font-weight:bold; margin-bottom:6px;">③ 불변점 (핵심!)</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.55); line-height:1.8;">
+          각 잔기 i의 <strong style="color:#ffcc88">로컬 프레임 T<sub>i</sub></strong>를 사용하여,
+          추상적 점(point)을 <strong>3D 글로벌 좌표</strong>로 변환한 뒤,
+          두 잔기의 점 사이 <strong style="color:#ff9955">유클리드 거리</strong>를 어텐션에 반영합니다.
+        </div>
+        <div style="text-align:center; margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:rgba(255,180,120,0.7);">
+          ‖ T<sub>i</sub>(p<sub>i</sub>) − T<sub>j</sub>(p<sub>j</sub>) ‖²
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:14px; color:#ffcc66; font-weight:bold; margin-bottom:10px;">왜 "불변(Invariant)"인가?</div>
+
+    <div style="display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+      <div style="flex:1; min-width:260px;">
+        <p style="font-size:13px; line-height:2; color:rgba(255,255,255,0.6);">
+          핵심 트릭은 <strong style="color:#ff9955">로컬 프레임</strong>의 사용입니다.
+          어텐션 점수를 계산할 때, 각 잔기는 자신의 로컬 좌표계에서 정의된 점(query point, key point)을
+          글로벌 좌표로 변환(T<sub>i</sub> 적용)한 뒤, 두 점 사이의 <strong>거리</strong>를 측정합니다.
+        </p>
+        <p style="font-size:13px; line-height:2; color:rgba(255,255,255,0.6); margin-top:8px;">
+          단백질 전체를 회전(R)하거나 이동(t)시키면, 모든 프레임 T<sub>i</sub>가 동일하게 변환되므로
+          두 점 사이의 <strong>상대적 거리는 변하지 않습니다</strong>.
+          따라서 어텐션 값도 동일하게 유지됩니다.
+        </p>
+      </div>
+      <div style="flex:0 0 auto; text-align:center; padding:16px 20px; background:rgba(0,0,0,0.3); border-radius:12px; border:1px solid rgba(255,136,68,0.15);">
+        <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:6px;">글로벌 변환 적용</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#ff9955; line-height:2;">
+          T<sub>i</sub> → R·T<sub>i</sub> + t<br>
+          T<sub>j</sub> → R·T<sub>j</sub> + t
+        </div>
+        <div style="margin:8px 0; font-size:18px; color:rgba(255,255,255,0.3);">↓</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:13px; color:#44cc88;">
+          ‖ (R·T<sub>i</sub>+t)(p) − (R·T<sub>j</sub>+t)(p) ‖<br>
+          = ‖ T<sub>i</sub>(p) − T<sub>j</sub>(p) ‖
+        </div>
+        <div style="font-size:11px; color:#44cc88; margin-top:6px;">거리 불변! → 어텐션 불변!</div>
+      </div>
+    </div>
+
+    <div style="padding:14px 18px; background:rgba(255,136,68,0.05); border:1px solid rgba(255,136,68,0.15); border-radius:10px;">
+      <p style="font-size:13px; line-height:1.9; color:rgba(255,255,255,0.6); margin:0;">
+        <strong style="color:#ff9955;">왜 중요한가:</strong>
+        단백질의 기능과 구조는 <strong>내부 원자 간의 상대적 배치</strong>에 의해 결정되며,
+        실험실에서 단백질을 어느 방향으로 놓든 같은 단백질입니다.
+        IPA의 SE(3) 불변성은 이 물리적 사실을 신경망에 직접 반영합니다.
+        덕분에 네트워크는 임의의 좌표계에서 학습해도 <strong>물리적으로 동일한 구조에 대해 동일한 결과</strong>를 보장하며,
+        데이터 증강(회전 augmentation) 없이도 올바른 3D 구조를 학습할 수 있습니다.
+      </p>
+    </div>
+  </div>
+
+  <h2 class="section-title struct-title">백본 정제 (Backbone Refinement)</h2>
+  <p class="desc">
+    Structure Module은 <strong>8회 반복(iteration)</strong>을 통해 단백질 백본(backbone)을 정제합니다.
+    각 잔기의 프레임(frame)이 처음에는 무작위 상태에서 시작하여 점진적으로 올바른 3D 구조로 수렴합니다.
+    각 반복마다 IPA를 통해 업데이트된 프레임이 더 정확한 구조를 만들어냅니다.
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-fold" onclick="toggleFold()" style="border-color:var(--struct-color);color:var(--struct-color);background:rgba(255,136,68,0.1)">&#9654; 접힘 시작</button>
+    <label>속도: <input type="range" id="speed-fold" min="0.2" max="3" step="0.1" value="1"></label>
+  </div>
+  <div class="iter-counter" style="color:var(--struct-color)">반복 (Iteration): <span id="fold-iter">0</span> / 8</div>
+  <div class="canvas-container">
+    <canvas id="canvas-fold" height="450"></canvas>
+  </div>
+
+  <h2 class="section-title struct-title">곁사슬 예측 (Side Chain Prediction - &chi; Angles)</h2>
+  <p class="desc">
+    백본 구조가 결정된 후, 각 잔기의 <strong>곁사슬(side chain)</strong>이 비틀림 각도(&chi; angles)를 통해 예측됩니다.
+    백본 프레임으로부터 곁사슬이 "자라나며", 최종적으로 원자 수준의 전체 구조가 완성됩니다.
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-side" onclick="toggleSide()" style="border-color:var(--struct-color);color:var(--struct-color);background:rgba(255,136,68,0.1)">&#9654; 재생</button>
+  </div>
+  <div class="canvas-container">
+    <canvas id="canvas-side" height="350"></canvas>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3 style="color:var(--struct-color)">SE(3) 불변성 (Invariance)</h3>
+      <p>IPA의 어텐션은 글로벌 회전과 이동에 대해 불변입니다.
+         단백질을 어떻게 회전시키든 동일한 어텐션 가중치가 계산됩니다.
+         이는 물리적으로 의미 있는 예측을 보장합니다.</p>
+      <div class="tag tag-struct">Invariant Point Attention</div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--struct-color)">프레임 업데이트 (Frame Update)</h3>
+      <p>각 잔기의 프레임 T = (R, t)는 회전 행렬 R과 이동 벡터 t로 구성됩니다.
+         IPA 출력을 기반으로 프레임이 업데이트되며, 8회 반복 후 최종 구조가 결정됩니다.</p>
+      <div class="tag tag-struct">Backbone Update</div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--struct-color)">비틀림 각도 (&chi; Angles)</h3>
+      <p>곁사슬은 최대 4개의 비틀림 각도(&chi;<sub>1</sub>, &chi;<sub>2</sub>, &chi;<sub>3</sub>, &chi;<sub>4</sub>)로
+         정의됩니다. ResNet 기반 예측기가 각 잔기의 곁사슬 형태를 결정합니다.</p>
+      <div class="tag tag-struct">Torsion Angle Prediction</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PIPELINE SECTION ============ -->
+<section class="section" id="sec-pipeline">
+  <h2 class="section-title" style="border-color:var(--accent);color:var(--accent)">전체 파이프라인 (Full Pipeline)</h2>
+  <p class="desc">
+    AlphaFold2의 전체 흐름입니다. 입력 서열로부터 MSA 검색, Evoformer 48블록 처리,
+    Structure Module 8회 반복을 거쳐 최종 3D 구조가 예측됩니다.
+  </p>
+
+  <div class="controls">
+    <button class="play-btn" id="btn-pipe" onclick="togglePipeline()" style="border-color:var(--accent);color:var(--accent);background:rgba(170,102,255,0.1)">&#9654; 파이프라인 시작</button>
+  </div>
+
+  <div class="pipeline-flow" id="pipeline-flow">
+    <div class="pipeline-step" style="border-color:var(--text-dim);background:rgba(255,255,255,0.03)" id="pipe-0">
+      <div style="font-size:1.5em;margin-bottom:5px">🧬</div>
+      입력 서열<br><small style="color:var(--text-dim)">(Input Sequence)</small>
+    </div>
+    <div class="pipeline-arrow" id="arrow-0">&rarr;</div>
+    <div class="pipeline-step" style="border-color:var(--msa-color);background:rgba(68,136,255,0.05)" id="pipe-1">
+      <div style="font-size:1.5em;margin-bottom:5px">🔍</div>
+      MSA 검색<br><small style="color:var(--text-dim)">(Database Search)</small>
+    </div>
+    <div class="pipeline-arrow" id="arrow-1">&rarr;</div>
+    <div class="pipeline-step" style="border-color:var(--msa-color);background:rgba(68,136,255,0.05)" id="pipe-2">
+      <div style="font-size:1.5em;margin-bottom:5px">🔄</div>
+      Evoformer<br><small style="color:var(--text-dim)">&times;48 blocks</small>
+    </div>
+    <div class="pipeline-arrow" id="arrow-2">&rarr;</div>
+    <div class="pipeline-step" style="border-color:var(--struct-color);background:rgba(255,136,68,0.05)" id="pipe-3">
+      <div style="font-size:1.5em;margin-bottom:5px">🏗️</div>
+      Structure Module<br><small style="color:var(--text-dim)">&times;8 iterations</small>
+    </div>
+    <div class="pipeline-arrow" id="arrow-3">&rarr;</div>
+    <div class="pipeline-step" style="border-color:var(--pair-color);background:rgba(68,204,136,0.05)" id="pipe-4">
+      <div style="font-size:1.5em;margin-bottom:5px">✅</div>
+      3D 구조 예측<br><small style="color:var(--text-dim)">(Predicted Structure)</small>
+    </div>
+  </div>
+
+  <div class="canvas-container" style="margin-top:40px">
+    <canvas id="canvas-pipeline" height="500"></canvas>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--msa-color)"></div> MSA 표현</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--pair-color)"></div> 쌍 표현</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--struct-color)"></div> Structure Module</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> 정보 흐름</div>
+  </div>
+</section>
+
+<div class="info-panel" id="info-panel">
+  <h4 id="info-title"></h4>
+  <p id="info-text"></p>
+</div>
+
+<div style="text-align:center;padding:40px 20px;color:var(--text-dim);font-size:0.8em">
+  현대생물학사 강의 자료 | AlphaFold2 (Jumper et al., Nature, 2021) 기반
+</div>
+
+<script>
+// ============ UTILITY ============
+const PI2 = Math.PI * 2;
+const lerp = (a,b,t) => a + (b-a)*t;
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const ease = t => t<0.5 ? 2*t*t : -1+(4-2*t)*t;
+
+function resizeCanvas(canvas, h) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = h * dpr;
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { w: rect.width, h, ctx, dpr };
+}
+
+// ============ TAB SWITCHING ============
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.className = 'tab-btn'; });
+  if (tab === 'evoformer') {
+    document.getElementById('sec-evoformer').classList.add('active');
+    document.getElementById('tab-evo').classList.add('active-evo');
+  } else if (tab === 'structure') {
+    document.getElementById('sec-structure').classList.add('active');
+    document.getElementById('tab-struct').classList.add('active-struct');
+  } else {
+    document.getElementById('sec-pipeline').classList.add('active');
+    document.getElementById('tab-pipe').classList.add('active-pipeline');
+  }
+}
+
+// ============ INFO PANEL ============
+function showInfo(title, text) {
+  const p = document.getElementById('info-panel');
+  document.getElementById('info-title').textContent = title;
+  document.getElementById('info-text').textContent = text;
+  p.classList.add('visible');
+}
+function hideInfo() {
+  document.getElementById('info-panel').classList.remove('visible');
+}
+
+// ============ MSA ANIMATION ============
+let msaPlaying = false, msaTime = 0, msaAnim = null;
+const MSA_ROWS = 10, MSA_COLS = 16;
+
+// Realistic MSA with homology (myoglobin-like sequences)
+// Row 0 = query, others are homologs with conservation pattern
+const MSA_SEQS = [
+  'VLSEGDWQLVLNAVLG',  // query (human-like)
+  'VLSEGDWQLVLNAVLG',  // identical
+  'VLSEGDWQLVLNAVLG',  // identical (close homolog)
+  'VLSAGDWQLVLNAVLG',  // E→A at pos 3
+  'VLSEGDWQLVLNAILG',  // V→I at pos 13
+  'ILSEGDWQLVLNAVLG',  // V→I at pos 0
+  'VLSEGDWQMVLNAVLG',  // L→M at pos 8
+  'VLSAGDWQMVLNAILG',  // 3 mutations
+  'ILSAGDWQLVLNAILG',  // 4 mutations
+  'VLTEGEWQLVLHAVLG',  // more divergent homolog
+];
+// Conservation score per column (higher = more conserved)
+const MSA_CONSERVATION = [];
+for (let c = 0; c < MSA_COLS; c++) {
+  const col = MSA_SEQS.map(s => s[c] || '-');
+  const counts = {};
+  col.forEach(aa => { counts[aa] = (counts[aa] || 0) + 1; });
+  const maxCount = Math.max(...Object.values(counts));
+  MSA_CONSERVATION.push(maxCount / MSA_ROWS);
+}
+
+let msaData = [];
+const aaIndex = 'ACDEFGHIKLMNPQRSTVWY';
+for (let r = 0; r < MSA_ROWS; r++) {
+  msaData[r] = [];
+  for (let c = 0; c < MSA_COLS; c++) {
+    const aa = (MSA_SEQS[r] && MSA_SEQS[r][c]) || 'A';
+    const val = aaIndex.indexOf(aa) / 20;
+    msaData[r][c] = { val: val >= 0 ? val : 0, phase: Math.random() * PI2, highlight: 0, aa: aa };
+  }
+}
+
+function drawMSA(time) {
+  const canvas = document.getElementById('canvas-msa');
+  const { w, h, ctx } = resizeCanvas(canvas, 420);
+  const speed = parseFloat(document.getElementById('speed-msa').value);
+  const t = time * speed;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const cellW = Math.min(40, (w - 200) / MSA_COLS);
+  const cellH = 28;
+  const gridW = cellW * MSA_COLS;
+  const gridH = cellH * MSA_ROWS;
+  const ox = (w - gridW) / 2;
+  const oy = (h - gridH) / 2;
+
+  // Determine mode: row-wise or column-wise attention
+  const cycle = (t * 0.3) % 2;
+  const isRow = cycle < 1;
+  const activeIdx = Math.floor((isRow ? (t * 0.5) % MSA_COLS : (t * 0.5) % MSA_ROWS));
+
+  // Title
+  ctx.font = '500 14px "Noto Sans KR"';
+  ctx.fillStyle = '#8888aa';
+  ctx.textAlign = 'center';
+  ctx.fillText(isRow ? '▶ 행 방향 어텐션 (Row-wise Attention) 활성' : '▼ 열 방향 어텐션 (Column-wise Attention) 활성', w/2, 25);
+
+  // Dimension labels
+  ctx.font = '12px "JetBrains Mono"';
+  ctx.fillStyle = '#6666aa';
+  ctx.textAlign = 'right';
+  ctx.fillText('서열 (Sequences)', ox - 10, oy + gridH/2 + 4);
+  ctx.textAlign = 'center';
+  ctx.fillText('잔기 위치 (Residue Positions)', ox + gridW/2, oy - 10);
+
+  // Draw grid
+  for (let r = 0; r < MSA_ROWS; r++) {
+    for (let c = 0; c < MSA_COLS; c++) {
+      const x = ox + c * cellW;
+      const y = oy + r * cellH;
+      const d = msaData[r][c];
+
+      let highlight = 0;
+      if (isRow && c === activeIdx) highlight = 1;
+      if (!isRow && r === activeIdx) highlight = 1;
+
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2 + d.phase);
+      const cons = MSA_CONSERVATION[c];
+      const isMutated = r > 0 && d.aa !== msaData[0][c].aa;
+
+      // Color by conservation: high=deep blue, low=lighter
+      const consAlpha = highlight ? 0.35 + 0.4 * pulse : 0.08 + cons * 0.25;
+      const color = isMutated
+        ? `rgba(255,100,80,${highlight ? 0.5 + 0.3*pulse : 0.3})`
+        : isRow
+          ? `rgba(68,136,255,${consAlpha})`
+          : `rgba(100,180,255,${consAlpha})`;
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, cellW - 2, cellH - 2, 3);
+      ctx.fill();
+
+      if (highlight) {
+        ctx.strokeStyle = `rgba(68,136,255,${0.5 + 0.3 * pulse})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Amino acid letter from actual sequence
+      const letterAlpha = highlight ? 0.7 + 0.3*pulse : (isMutated ? 0.6 : 0.2 + cons * 0.3);
+      ctx.fillStyle = isMutated ? `rgba(255,180,150,${letterAlpha})` : `rgba(255,255,255,${letterAlpha})`;
+      ctx.font = `${isMutated ? 'bold ' : ''}11px "JetBrains Mono"`;
+      ctx.textAlign = 'center';
+      ctx.fillText(d.aa, x + cellW/2, y + cellH/2 + 4);
+    }
+  }
+
+  // Draw attention arrows
+  if (isRow) {
+    const x = ox + activeIdx * cellW + cellW/2;
+    for (let r = 0; r < MSA_ROWS - 1; r++) {
+      const y1 = oy + r * cellH + cellH;
+      const y2 = oy + (r+1) * cellH;
+      const alpha = 0.3 + 0.3 * Math.sin(t * 3 + r * 0.5);
+      ctx.strokeStyle = `rgba(68,136,255,${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y1);
+      ctx.lineTo(x, y2);
+      ctx.stroke();
+      // Arrow head
+      ctx.fillStyle = `rgba(68,136,255,${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y2);
+      ctx.lineTo(x-3, y2-5);
+      ctx.lineTo(x+3, y2-5);
+      ctx.fill();
+    }
+    // Bidirectional arrows
+    for (let r = MSA_ROWS - 1; r > 0; r--) {
+      const y1 = oy + r * cellH;
+      const y2 = oy + (r-1) * cellH + cellH;
+      const alpha = 0.2 + 0.2 * Math.sin(t * 3 + r * 0.5 + 1);
+      ctx.strokeStyle = `rgba(68,136,255,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + 5, y1);
+      ctx.lineTo(x + 5, y2);
+      ctx.stroke();
+    }
+  } else {
+    const y = oy + activeIdx * cellH + cellH/2;
+    for (let c = 0; c < MSA_COLS - 1; c++) {
+      const x1 = ox + c * cellW + cellW;
+      const x2 = ox + (c+1) * cellW;
+      const alpha = 0.3 + 0.3 * Math.sin(t * 3 + c * 0.5);
+      ctx.strokeStyle = `rgba(100,180,255,${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y);
+      ctx.lineTo(x2, y);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(100,180,255,${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(x2, y);
+      ctx.lineTo(x2-5, y-3);
+      ctx.lineTo(x2-5, y+3);
+      ctx.fill();
+    }
+  }
+
+  // Glow effect for active line
+  if (isRow) {
+    const x = ox + activeIdx * cellW + cellW/2;
+    const grd = ctx.createLinearGradient(x-20, 0, x+20, 0);
+    grd.addColorStop(0, 'rgba(68,136,255,0)');
+    grd.addColorStop(0.5, 'rgba(68,136,255,0.08)');
+    grd.addColorStop(1, 'rgba(68,136,255,0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(x - 20, oy, 40, gridH);
+  } else {
+    const y = oy + activeIdx * cellH + cellH/2;
+    const grd = ctx.createLinearGradient(0, y-15, 0, y+15);
+    grd.addColorStop(0, 'rgba(100,180,255,0)');
+    grd.addColorStop(0.5, 'rgba(100,180,255,0.08)');
+    grd.addColorStop(1, 'rgba(100,180,255,0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(ox, y-15, gridW, 30);
+  }
+}
+
+function msaLoop(ts) {
+  if (!msaPlaying) return;
+  msaTime = ts / 1000;
+  drawMSA(msaTime);
+  msaAnim = requestAnimationFrame(msaLoop);
+}
+
+function toggleMSA() {
+  msaPlaying = !msaPlaying;
+  document.getElementById('btn-msa').innerHTML = msaPlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 재생';
+  if (msaPlaying) msaAnim = requestAnimationFrame(msaLoop);
+}
+
+// ============ PAIR REPRESENTATION ============
+let pairPlaying = false, pairTime = 0, pairAnim = null;
+const PAIR_N = 12;
+let pairData = [];
+for (let i = 0; i < PAIR_N; i++) {
+  pairData[i] = [];
+  for (let j = 0; j < PAIR_N; j++) {
+    pairData[i][j] = { val: Math.random(), phase: Math.random() * PI2 };
+  }
+}
+
+function drawPair(time) {
+  const canvas = document.getElementById('canvas-pair');
+  const { w, h, ctx } = resizeCanvas(canvas, 480);
+  const speed = parseFloat(document.getElementById('speed-pair').value);
+  const t = time * speed;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const cellS = Math.min(30, (Math.min(w * 0.45, h - 100)) / PAIR_N);
+  const gridS = cellS * PAIR_N;
+
+  // MSA mini matrix (left side)
+  const msaMiniW = Math.min(w * 0.25, 200);
+  const msaMiniCellW = msaMiniW / MSA_COLS;
+  const msaMiniCellH = 12;
+  const msaMiniX = 30;
+  const msaMiniY = h/2 - (MSA_ROWS * msaMiniCellH) / 2;
+
+  ctx.font = '12px "Noto Sans KR"';
+  ctx.fillStyle = var_msa;
+  ctx.textAlign = 'center';
+  ctx.fillText('MSA 표현', msaMiniX + msaMiniW/2, msaMiniY - 10);
+
+  for (let r = 0; r < MSA_ROWS; r++) {
+    for (let c = 0; c < MSA_COLS; c++) {
+      const x = msaMiniX + c * msaMiniCellW;
+      const y = msaMiniY + r * msaMiniCellH;
+      const pulse = 0.3 + 0.3 * Math.sin(t * 2 + msaData[r][c].phase);
+      ctx.fillStyle = `rgba(68,136,255,${pulse})`;
+      ctx.fillRect(x+0.5, y+0.5, msaMiniCellW-1, msaMiniCellH-1);
+    }
+  }
+
+  // Pair matrix (right side)
+  const pairX = w - gridS - 40;
+  const pairY = (h - gridS) / 2;
+
+  ctx.font = '12px "Noto Sans KR"';
+  ctx.fillStyle = var_pair;
+  ctx.textAlign = 'center';
+  ctx.fillText('쌍 표현 (Pair Representation)', pairX + gridS/2, pairY - 15);
+
+  // Axis labels
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#6666aa';
+  ctx.fillText('잔기 j', pairX + gridS/2, pairY - 3);
+  ctx.save();
+  ctx.translate(pairX - 8, pairY + gridS/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('잔기 i', 0, 0);
+  ctx.restore();
+
+  // Triangle animation params
+  const triCycle = (t * 0.4) % PAIR_N;
+  const ki = Math.floor(triCycle);
+  const ti = (Math.floor(t * 0.7)) % PAIR_N;
+  const tj = (ti + 3 + Math.floor(t * 0.3)) % PAIR_N;
+  const tk = (ti + 7 + Math.floor(t * 0.5)) % PAIR_N;
+
+  for (let i = 0; i < PAIR_N; i++) {
+    for (let j = 0; j < PAIR_N; j++) {
+      const x = pairX + j * cellS;
+      const y = pairY + i * cellS;
+      const d = pairData[i][j];
+      const pulse = 0.3 + 0.2 * Math.sin(t * 1.5 + d.phase);
+
+      let isTriHighlight = (i===ti && j===tj) || (i===ti && j===tk) || (i===tk && j===tj);
+      const alpha = isTriHighlight ? 0.6 + 0.3 * Math.sin(t*4) : pulse * 0.5;
+
+      ctx.fillStyle = isTriHighlight
+        ? `rgba(68,204,136,${alpha})`
+        : `rgba(68,204,136,${alpha * 0.5})`;
+      ctx.beginPath();
+      ctx.roundRect(x+1, y+1, cellS-2, cellS-2, 2);
+      ctx.fill();
+
+      if (isTriHighlight) {
+        ctx.strokeStyle = `rgba(68,204,136,${0.7})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Draw triangle paths
+  const triAlpha = 0.5 + 0.3 * Math.sin(t * 3);
+  const cx = (i) => pairX + i * cellS + cellS/2;
+  const cy = (j) => pairY + j * cellS + cellS/2;
+
+  ctx.strokeStyle = `rgba(255,220,100,${triAlpha})`;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  // Triangle: (ti,tj) -> (ti,tk) -> (tk,tj)
+  ctx.moveTo(cx(tj), cy(ti));
+  ctx.lineTo(cx(tk), cy(ti));
+  ctx.lineTo(cx(tj), cy(tk));
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Triangle label
+  ctx.font = '11px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,220,100,0.8)';
+  const labelX = (cx(tj) + cx(tk)) / 2;
+  const labelY = Math.min(cy(ti), cy(tk)) - 5;
+  ctx.fillText(`삼각 경로: k=${tk}`, labelX, pairY + gridS + 25);
+
+  // Outer product mean arrows (MSA -> Pair)
+  const arrowCount = 5;
+  for (let a = 0; a < arrowCount; a++) {
+    const progress = ((t * 0.5 + a * 0.2) % 1);
+    const startX = msaMiniX + msaMiniW;
+    const startY = msaMiniY + (a / arrowCount) * MSA_ROWS * msaMiniCellH + msaMiniCellH;
+    const endX = pairX;
+    const endY = pairY + (a / arrowCount) * gridS + cellS;
+
+    const px = lerp(startX, endX, progress);
+    const py = lerp(startY, endY, progress);
+
+    // Particle
+    const particleAlpha = Math.sin(progress * Math.PI);
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, PI2);
+    ctx.fillStyle = `rgba(170,102,255,${particleAlpha * 0.8})`;
+    ctx.fill();
+
+    // Glow
+    ctx.beginPath();
+    ctx.arc(px, py, 8, 0, PI2);
+    ctx.fillStyle = `rgba(170,102,255,${particleAlpha * 0.2})`;
+    ctx.fill();
+  }
+
+  // Arrow line (dashed)
+  ctx.strokeStyle = 'rgba(170,102,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3,5]);
+  ctx.beginPath();
+  ctx.moveTo(msaMiniX + msaMiniW + 10, h/2);
+  ctx.lineTo(pairX - 10, h/2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.font = '11px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(170,102,255,0.7)';
+  ctx.textAlign = 'center';
+  ctx.fillText('외적 평균 (Outer Product Mean)', (msaMiniX + msaMiniW + pairX) / 2, h/2 - 10);
+}
+
+const var_msa = '#4488ff';
+const var_pair = '#44cc88';
+
+function pairLoop(ts) {
+  if (!pairPlaying) return;
+  pairTime = ts / 1000;
+  drawPair(pairTime);
+  pairAnim = requestAnimationFrame(pairLoop);
+}
+
+function togglePair() {
+  pairPlaying = !pairPlaying;
+  document.getElementById('btn-pair').innerHTML = pairPlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 재생';
+  if (pairPlaying) pairAnim = requestAnimationFrame(pairLoop);
+}
+
+// ============ BIDIRECTIONAL EXCHANGE ============
+let bidirPlaying = false, bidirTime = 0, bidirAnim = null;
+
+function drawBidir(time) {
+  const canvas = document.getElementById('canvas-bidir');
+  const { w, h, ctx } = resizeCanvas(canvas, 400);
+  const speed = parseFloat(document.getElementById('speed-bidir').value);
+  const t = time * speed;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const blockW = Math.min(200, w * 0.25);
+  const blockH = 160;
+  const gap = Math.min(200, w * 0.3);
+  const msaX = w/2 - gap/2 - blockW;
+  const pairX = w/2 + gap/2;
+  const by = (h - blockH) / 2;
+
+  // Iteration counter
+  const iterNum = Math.min(48, Math.floor((t * 2) % 49));
+  document.getElementById('iter-val').textContent = iterNum;
+
+  // MSA Block
+  const msaPulse = 0.7 + 0.3 * Math.sin(t * 2);
+  ctx.strokeStyle = `rgba(68,136,255,${msaPulse})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(msaX, by, blockW, blockH, 12);
+  ctx.stroke();
+  ctx.fillStyle = `rgba(68,136,255,0.05)`;
+  ctx.fill();
+
+  // MSA mini grid
+  const miniCW = (blockW - 30) / 8;
+  const miniCH = (blockH - 60) / 5;
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 8; c++) {
+      const x = msaX + 15 + c * miniCW;
+      const y = by + 35 + r * miniCH;
+      const pulse = 0.2 + 0.3 * Math.sin(t * 2 + r * 0.5 + c * 0.3);
+      ctx.fillStyle = `rgba(68,136,255,${pulse})`;
+      ctx.fillRect(x+1, y+1, miniCW-2, miniCH-2);
+    }
+  }
+  ctx.font = '500 13px "Noto Sans KR"';
+  ctx.fillStyle = var_msa;
+  ctx.textAlign = 'center';
+  ctx.fillText('MSA 표현', msaX + blockW/2, by + 20);
+
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#6666aa';
+  ctx.fillText('(N_seq × N_res × 256)', msaX + blockW/2, by + blockH - 8);
+
+  // Pair Block
+  const pairPulse = 0.7 + 0.3 * Math.sin(t * 2 + 1);
+  ctx.strokeStyle = `rgba(68,204,136,${pairPulse})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(pairX, by, blockW, blockH, 12);
+  ctx.stroke();
+  ctx.fillStyle = `rgba(68,204,136,0.05)`;
+  ctx.fill();
+
+  // Pair mini grid
+  const pairCS = (blockH - 60) / 6;
+  const pairGS = pairCS * 6;
+  const pairGX = pairX + (blockW - pairGS) / 2;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 6; j++) {
+      const x = pairGX + j * pairCS;
+      const y = by + 35 + i * pairCS;
+      const pulse = 0.2 + 0.3 * Math.sin(t * 1.8 + i * 0.4 + j * 0.4);
+      ctx.fillStyle = `rgba(68,204,136,${pulse})`;
+      ctx.fillRect(x+1, y+1, pairCS-2, pairCS-2);
+    }
+  }
+  ctx.font = '500 13px "Noto Sans KR"';
+  ctx.fillStyle = var_pair;
+  ctx.textAlign = 'center';
+  ctx.fillText('쌍 표현', pairX + blockW/2, by + 20);
+
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#6666aa';
+  ctx.fillText('(N_res × N_res × 128)', pairX + blockW/2, by + blockH - 8);
+
+  // Bidirectional arrows with particles
+  const midY = by + blockH / 2;
+  const arrowStartX = msaX + blockW;
+  const arrowEndX = pairX;
+
+  // Forward particles (MSA -> Pair)
+  for (let p = 0; p < 6; p++) {
+    const prog = ((t * 0.8 + p * 0.17) % 1);
+    const px = lerp(arrowStartX + 10, arrowEndX - 10, prog);
+    const py = midY - 15 + Math.sin(prog * Math.PI * 2) * 8;
+    const alpha = Math.sin(prog * Math.PI);
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, PI2);
+    ctx.fillStyle = `rgba(68,136,255,${alpha * 0.8})`;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(px, py, 10, 0, PI2);
+    ctx.fillStyle = `rgba(68,136,255,${alpha * 0.15})`;
+    ctx.fill();
+  }
+
+  // Backward particles (Pair -> MSA)
+  for (let p = 0; p < 6; p++) {
+    const prog = ((t * 0.8 + p * 0.17 + 0.5) % 1);
+    const px = lerp(arrowEndX - 10, arrowStartX + 10, prog);
+    const py = midY + 15 + Math.sin(prog * Math.PI * 2) * 8;
+    const alpha = Math.sin(prog * Math.PI);
+    ctx.beginPath();
+    ctx.arc(px, py, 4, 0, PI2);
+    ctx.fillStyle = `rgba(68,204,136,${alpha * 0.8})`;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(px, py, 10, 0, PI2);
+    ctx.fillStyle = `rgba(68,204,136,${alpha * 0.15})`;
+    ctx.fill();
+  }
+
+  // Arrow labels
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(68,136,255,0.6)';
+  ctx.textAlign = 'center';
+  ctx.fillText('행 어텐션 + 편향', (arrowStartX + arrowEndX) / 2, midY - 28);
+  ctx.fillStyle = 'rgba(68,204,136,0.6)';
+  ctx.fillText('외적 평균', (arrowStartX + arrowEndX) / 2, midY + 38);
+
+  // Progress bar
+  const barW = w - 80;
+  const barX = 40;
+  const barY = h - 30;
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, 8, 4);
+  ctx.fill();
+
+  const progress = iterNum / 48;
+  const grd = ctx.createLinearGradient(barX, 0, barX + barW * progress, 0);
+  grd.addColorStop(0, var_msa);
+  grd.addColorStop(1, var_pair);
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW * progress, 8, 4);
+  ctx.fill();
+}
+
+function bidirLoop(ts) {
+  if (!bidirPlaying) return;
+  bidirTime = ts / 1000;
+  drawBidir(bidirTime);
+  bidirAnim = requestAnimationFrame(bidirLoop);
+}
+
+function toggleBidir() {
+  bidirPlaying = !bidirPlaying;
+  document.getElementById('btn-bidir').innerHTML = bidirPlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 재생';
+  if (bidirPlaying) bidirAnim = requestAnimationFrame(bidirLoop);
+}
+
+// ============ IPA ANIMATION ============
+let ipaPlaying = false, ipaTime = 0, ipaAnim = null;
+
+function drawIPA(time) {
+  const canvas = document.getElementById('canvas-ipa');
+  const { w, h, ctx } = resizeCanvas(canvas, 480);
+  const speed = parseFloat(document.getElementById('speed-ipa').value);
+  const t = time * speed;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // === TWO PANELS: Original (left) vs Rotated (right) ===
+  const panelW = w / 2 - 10;
+  const globalRot = t * 0.3; // slow rotation for right panel
+
+  // Residue positions (6 residues in a bent chain) — ENLARGED
+  const nRes = 6;
+  const scale = 2.2;
+  const basePositions = [];
+  for (let i = 0; i < nRes; i++) {
+    const angle = -0.4 + i * 0.55;
+    const r = (42 + i * 8) * scale;
+    basePositions.push({
+      x: Math.cos(angle) * r + i * 22 * scale - 70 * scale,
+      y: Math.sin(angle) * r * 0.7 - 10 * scale
+    });
+  }
+
+  // Local frame angles per residue
+  const frameAngles = basePositions.map((_, i) => 0.3 + i * 0.4);
+
+  // Attention pair to highlight (cycles)
+  const pairCycle = (t * 0.4) % 3;
+  const attPairs = [[1, 4], [0, 3], [2, 5]];
+  const currentPair = attPairs[Math.floor(pairCycle)];
+  const pairI = currentPair[0], pairJ = currentPair[1];
+  const attPulse = 0.5 + 0.5 * Math.sin(t * 3);
+
+  // Component highlight cycle: 0=all, 1=q·k, 2=pair bias, 3=point distance
+  const compCycle = (t * 0.25) % 4;
+  const activeComp = Math.floor(compCycle);
+
+  function drawPanel(ox, oy, rotation, label, panelIdx) {
+    ctx.save();
+    ctx.translate(ox, oy);
+
+    // Panel title
+    ctx.font = 'bold 13px "Noto Sans KR"';
+    ctx.fillStyle = panelIdx === 0 ? 'rgba(255,200,100,0.8)' : 'rgba(100,200,255,0.8)';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, panelW / 2, -oy + 22);
+
+    // Compute rotated positions
+    const cosR = Math.cos(rotation), sinR = Math.sin(rotation);
+    const rotPos = basePositions.map(p => ({
+      x: p.x * cosR - p.y * sinR,
+      y: p.x * sinR + p.y * cosR
+    }));
+
+    // Draw backbone bonds
+    for (let i = 0; i < nRes - 1; i++) {
+      ctx.strokeStyle = 'rgba(255,136,68,0.25)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(rotPos[i].x, rotPos[i].y);
+      ctx.lineTo(rotPos[i+1].x, rotPos[i+1].y);
+      ctx.stroke();
+    }
+
+    // Draw local frames and residues
+    for (let i = 0; i < nRes; i++) {
+      const px = rotPos[i].x, py = rotPos[i].y;
+      const fAngle = frameAngles[i] + rotation;
+      const axLen = 30;
+
+      // X axis (red)
+      ctx.strokeStyle = 'rgba(255,100,100,0.55)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.cos(fAngle) * axLen, py + Math.sin(fAngle) * axLen);
+      ctx.stroke();
+      // Y axis (green)
+      ctx.strokeStyle = 'rgba(100,255,100,0.55)';
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.cos(fAngle + Math.PI/2) * axLen * 0.8, py + Math.sin(fAngle + Math.PI/2) * axLen * 0.8);
+      ctx.stroke();
+
+      // Query/Key points in local frame (small dots at frame-relative positions)
+      if (i === pairI || i === pairJ) {
+        const ptAngle = fAngle + 0.6;
+        const ptDist = 20;
+        const ptX = px + Math.cos(ptAngle) * ptDist;
+        const ptY = py + Math.sin(ptAngle) * ptDist;
+
+        // Point marker
+        ctx.beginPath();
+        ctx.arc(ptX, ptY, 3, 0, PI2);
+        ctx.fillStyle = `rgba(255,220,100,${0.4 + attPulse * 0.4})`;
+        ctx.fill();
+
+        // Label "p"
+        if (panelIdx === 0) {
+          ctx.font = '8px "JetBrains Mono"';
+          ctx.fillStyle = `rgba(255,220,100,${0.3 + attPulse * 0.3})`;
+          ctx.textAlign = 'left';
+          ctx.fillText(i === pairI ? 'pᵢ' : 'pⱼ', ptX + 5, ptY - 2);
+        }
+      }
+
+      // Residue sphere
+      const isActive = i === pairI || i === pairJ;
+      const sphereR = isActive ? 18 : 15;
+      const grad = ctx.createRadialGradient(px - 2, py - 2, 2, px, py, sphereR);
+      grad.addColorStop(0, isActive ? 'rgba(255,200,120,0.95)' : 'rgba(255,136,68,0.85)');
+      grad.addColorStop(1, isActive ? 'rgba(255,136,68,0.4)' : 'rgba(255,136,68,0.15)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px, py, sphereR, 0, PI2);
+      ctx.fill();
+
+      if (isActive) {
+        ctx.strokeStyle = `rgba(255,220,100,${0.3 + attPulse * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Index
+      ctx.font = '9px "JetBrains Mono"';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(i === pairI ? 'i' : i === pairJ ? 'j' : (i+1), px, py + 3);
+    }
+
+    // === Draw the 3 attention components ===
+    const ai = rotPos[pairI], aj = rotPos[pairJ];
+
+    // 1. Standard attention arc (q·k)
+    if (activeComp === 0 || activeComp === 1) {
+      const cpY = Math.min(ai.y, aj.y) - 45 - Math.abs(pairI - pairJ) * 10;
+      const alpha = (activeComp === 1) ? 0.5 + attPulse * 0.4 : 0.25;
+      ctx.strokeStyle = `rgba(255,180,80,${alpha})`;
+      ctx.lineWidth = (activeComp === 1) ? 3 : 1.5;
+      ctx.beginPath();
+      ctx.moveTo(ai.x, ai.y - 14);
+      ctx.quadraticCurveTo((ai.x + aj.x) / 2, cpY, aj.x, aj.y - 14);
+      ctx.stroke();
+
+      if (panelIdx === 0) {
+        ctx.font = (activeComp === 1) ? 'bold 10px "JetBrains Mono"' : '9px "JetBrains Mono"';
+        ctx.fillStyle = `rgba(255,180,80,${alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('① qᵢ · kⱼ', (ai.x + aj.x) / 2, cpY - 5);
+      }
+    }
+
+    // 2. Pair bias (z_ij) — shown as a small box/badge
+    if (activeComp === 0 || activeComp === 2) {
+      const midX = (ai.x + aj.x) / 2, midY = (ai.y + aj.y) / 2;
+      const alpha = (activeComp === 2) ? 0.5 + attPulse * 0.4 : 0.2;
+      ctx.fillStyle = `rgba(68,204,136,${alpha * 0.3})`;
+      ctx.beginPath();
+      ctx.roundRect(midX - 20, midY - 10, 40, 20, 6);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(68,204,136,${alpha})`;
+      ctx.lineWidth = (activeComp === 2) ? 2 : 1;
+      ctx.stroke();
+      if (panelIdx === 0) {
+        ctx.font = (activeComp === 2) ? 'bold 9px "JetBrains Mono"' : '8px "JetBrains Mono"';
+        ctx.fillStyle = `rgba(68,204,136,${alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('② zᵢⱼ', midX, midY + 3);
+      }
+    }
+
+    // 3. Invariant point distance — THE KEY
+    if (activeComp === 0 || activeComp === 3) {
+      const fAngleI = frameAngles[pairI] + rotation;
+      const fAngleJ = frameAngles[pairJ] + rotation;
+      const ptDist = 20;
+      const ptIx = ai.x + Math.cos(fAngleI + 0.6) * ptDist;
+      const ptIy = ai.y + Math.sin(fAngleI + 0.6) * ptDist;
+      const ptJx = aj.x + Math.cos(fAngleJ + 0.6) * ptDist;
+      const ptJy = aj.y + Math.sin(fAngleJ + 0.6) * ptDist;
+
+      const alpha = (activeComp === 3) ? 0.6 + attPulse * 0.3 : 0.2;
+
+      // Distance line between transformed points
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = `rgba(255,100,100,${alpha})`;
+      ctx.lineWidth = (activeComp === 3) ? 2.5 : 1;
+      ctx.beginPath();
+      ctx.moveTo(ptIx, ptIy);
+      ctx.lineTo(ptJx, ptJy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Distance value
+      const dist = Math.sqrt((ptIx - ptJx) ** 2 + (ptIy - ptJy) ** 2);
+      if (panelIdx === 0) {
+        const labelX = (ptIx + ptJx) / 2;
+        const labelY = (ptIy + ptJy) / 2 + 14;
+        ctx.font = (activeComp === 3) ? 'bold 10px "JetBrains Mono"' : '9px "JetBrains Mono"';
+        ctx.fillStyle = `rgba(255,100,100,${alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`③ ‖T(p)‖=${dist.toFixed(0)}`, labelX, labelY);
+      }
+      // Show same distance on right panel
+      if (panelIdx === 1) {
+        const labelX = (ptIx + ptJx) / 2;
+        const labelY = (ptIy + ptJy) / 2 + 14;
+        ctx.font = 'bold 10px "JetBrains Mono"';
+        ctx.fillStyle = `rgba(100,220,255,${alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`=${dist.toFixed(0)} 동일!`, labelX, labelY);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // Divider line
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(w / 2, 35);
+  ctx.lineTo(w / 2, h - 55);
+  ctx.stroke();
+
+  // Draw both panels
+  const cx1 = panelW / 2 + 5, cy1 = h / 2 + 5;
+  const cx2 = w / 2 + panelW / 2 + 5, cy2 = h / 2 + 5;
+  drawPanel(cx1, cy1, 0, '원래 배치', 0);
+  drawPanel(cx2, cy2, globalRot, `글로벌 회전 (${(globalRot * 180 / Math.PI % 360).toFixed(0)}°)`, 1);
+
+  // Component legend at bottom
+  const legY = h - 48;
+  ctx.font = '11px "Noto Sans KR"';
+  ctx.textAlign = 'center';
+
+  const compLabels = ['모두 표시', '① 일반 어텐션 (qᵢ·kⱼ)', '② 쌍 편향 (zᵢⱼ)', '③ 불변점 거리 (‖Tᵢ(p)−Tⱼ(p)‖)'];
+  const compColors = ['rgba(255,255,255,0.5)', 'rgba(255,180,80,0.7)', 'rgba(68,204,136,0.7)', 'rgba(255,100,100,0.7)'];
+
+  for (let c = 0; c < 4; c++) {
+    const cx = w * (c + 0.5) / 4;
+    const isActive = c === activeComp;
+    ctx.fillStyle = isActive ? compColors[c] : 'rgba(255,255,255,0.2)';
+    ctx.font = isActive ? 'bold 10px "Noto Sans KR"' : '10px "Noto Sans KR"';
+    ctx.fillText(compLabels[c], cx, legY);
+    if (isActive) {
+      ctx.fillStyle = compColors[c];
+      ctx.fillRect(cx - 20, legY + 4, 40, 2);
+    }
+  }
+
+  // Main explanation
+  ctx.font = '12px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,200,150,0.6)';
+  ctx.textAlign = 'center';
+  ctx.fillText('오른쪽 단백질은 계속 회전하지만, 잔기 간 불변점 거리(③)는 항상 동일 → SE(3) 불변', w / 2, h - 18);
+
+  // Frame legend
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,100,100,0.5)';
+  ctx.fillText('— x축', 15, h - 28);
+  ctx.fillStyle = 'rgba(100,255,100,0.5)';
+  ctx.fillText('— y축', 65, h - 28);
+  ctx.fillStyle = 'rgba(255,220,100,0.5)';
+  ctx.fillText('● 불변점(p)', 115, h - 28);
+}
+
+function ipaLoop(ts) {
+  if (!ipaPlaying) return;
+  ipaTime = ts / 1000;
+  drawIPA(ipaTime);
+  ipaAnim = requestAnimationFrame(ipaLoop);
+}
+
+function toggleIPA() {
+  ipaPlaying = !ipaPlaying;
+  document.getElementById('btn-ipa').innerHTML = ipaPlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 재생';
+  if (ipaPlaying) ipaAnim = requestAnimationFrame(ipaLoop);
+}
+
+// ============ FOLDING ANIMATION ============
+let foldPlaying = false, foldTime = 0, foldAnim = null, foldStartTs = 0;
+
+const FOLD_N = 30;
+let foldCurrent = [];
+
+// Stage 0: fully random spread (unfolded, disordered)
+let foldStages = [];
+const foldRandom = [];
+for (let i = 0; i < FOLD_N; i++) {
+  foldRandom.push({
+    x: (Math.random() - 0.5) * 550,
+    y: (Math.random() - 0.5) * 320
+  });
+  foldCurrent.push({ ...foldRandom[i] });
+}
+foldStages.push(foldRandom.map(p => ({ ...p })));
+
+// Stage 1 (iter 1): slightly gathered, still messy — like a loose coil
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const a = i / FOLD_N * Math.PI * 4;
+    s.push({
+      x: (Math.random() - 0.5) * 300 + Math.cos(a) * 40,
+      y: (Math.random() - 0.5) * 220 + Math.sin(a) * 30
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 2 (iter 2): rough chain forms, like a stretched random coil
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    s.push({
+      x: (t - 0.5) * 400 + (Math.random() - 0.5) * 80,
+      y: Math.sin(t * Math.PI * 3) * 100 + (Math.random() - 0.5) * 60
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 3 (iter 3): chain starts bending, U-shape forming
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    const bend = Math.sin(t * Math.PI) * 120;
+    s.push({
+      x: (t - 0.5) * 350 + (Math.random() - 0.5) * 40,
+      y: -bend + (Math.random() - 0.5) * 30 + 30
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 4 (iter 4): secondary structure hints — wavy helical segments
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    const segment = Math.floor(t * 3);
+    const localT = (t * 3) % 1;
+    const offsets = [[-120, -40], [0, 50], [120, -20]];
+    const base = offsets[Math.min(segment, 2)];
+    s.push({
+      x: base[0] + localT * 100 - 50 + Math.sin(localT * Math.PI * 4) * 15,
+      y: base[1] + Math.cos(localT * Math.PI * 4) * 20 + (Math.random() - 0.5) * 15
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 5 (iter 5): compact but rough — alpha helices forming
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    const segment = Math.floor(t * 3);
+    const localT = (t * 3) % 1;
+    const centers = [[-80, -50], [30, 40], [110, -30]];
+    const c = centers[Math.min(segment, 2)];
+    const helixAngle = localT * Math.PI * 5;
+    s.push({
+      x: c[0] + Math.cos(helixAngle) * 30 + (Math.random() - 0.5) * 10,
+      y: c[1] + Math.sin(helixAngle) * 18 + localT * 25 - 12
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 6 (iter 6): tertiary fold — segments pack together
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    const segment = Math.floor(t * 3);
+    const localT = (t * 3) % 1;
+    const centers = [[-55, -35], [15, 30], [70, -20]];
+    const c = centers[Math.min(segment, 2)];
+    const helixAngle = localT * Math.PI * 5;
+    s.push({
+      x: c[0] + Math.cos(helixAngle) * 25,
+      y: c[1] + Math.sin(helixAngle) * 14 + localT * 20 - 10
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 7 (iter 7): near-final — tight packing, clear helices
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    const segment = Math.floor(t * 3);
+    const localT = (t * 3) % 1;
+    const centers = [[-45, -25], [10, 22], [55, -15]];
+    const c = centers[Math.min(segment, 2)];
+    const helixAngle = localT * Math.PI * 6;
+    s.push({
+      x: c[0] + Math.cos(helixAngle) * 22,
+      y: c[1] + Math.sin(helixAngle) * 12 + localT * 16 - 8
+    });
+  }
+  foldStages.push(s);
+}
+
+// Stage 8 (iter 8): final folded structure — clean, tight
+{
+  const s = [];
+  for (let i = 0; i < FOLD_N; i++) {
+    const t = i / (FOLD_N - 1);
+    const segment = Math.floor(t * 3);
+    const localT = (t * 3) % 1;
+    const centers = [[-40, -22], [8, 20], [50, -12]];
+    const c = centers[Math.min(segment, 2)];
+    const helixAngle = localT * Math.PI * 6;
+    s.push({
+      x: c[0] + Math.cos(helixAngle) * 20,
+      y: c[1] + Math.sin(helixAngle) * 10 + localT * 14 - 7
+    });
+  }
+  foldStages.push(s);
+}
+
+// Long-range contacts that progressively appear
+const foldContacts = [
+  { a: 4, b: 26, appear: 3 },
+  { a: 7, b: 22, appear: 4 },
+  { a: 2, b: 28, appear: 5 },
+  { a: 10, b: 20, appear: 4 },
+  { a: 1, b: 15, appear: 5 },
+  { a: 13, b: 27, appear: 6 },
+  { a: 6, b: 18, appear: 6 },
+  { a: 9, b: 24, appear: 7 },
+];
+
+// Secondary structure annotation (helix/loop)
+const ssType = [];
+for (let i = 0; i < FOLD_N; i++) {
+  const t = i / (FOLD_N - 1);
+  const seg = Math.floor(t * 3);
+  const lt = (t * 3) % 1;
+  if (lt > 0.1 && lt < 0.85) ssType.push('helix');
+  else ssType.push('loop');
+}
+
+const foldStatusLabels = [
+  '초기 상태: 구조 정보 없음 — 무작위 배치',
+  'Iteration 1: 잔기들이 모이기 시작',
+  'Iteration 2: 사슬 연결성 형성',
+  'Iteration 3: 전체적인 접힘 방향 결정',
+  'Iteration 4: 2차 구조 (α-helix) 힌트 등장',
+  'Iteration 5: 2차 구조 형성, 소수성 코어 응축',
+  'Iteration 6: 3차 구조 — 도메인 패킹',
+  'Iteration 7: 세부 구조 정제 중',
+  'Iteration 8: 최종 3D 구조 예측 완료'
+];
+
+function drawFold(time) {
+  const canvas = document.getElementById('canvas-fold');
+  const { w, h, ctx } = resizeCanvas(canvas, 450);
+  const speed = parseFloat(document.getElementById('speed-fold').value);
+  const t = time * speed;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Each iteration takes 3 seconds (slower to observe)
+  const rawIter = t * 0.33;
+  const iter = Math.min(8, Math.floor(rawIter));
+  const iterFrac = clamp(rawIter - iter, 0, 1);
+  document.getElementById('fold-iter').textContent = Math.min(iter, 8);
+
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // Determine which two stages to interpolate between
+  const fromStage = Math.min(iter, 8);
+  const toStage = Math.min(iter + 1, 8);
+  const lerpT = iter >= 8 ? 1 : ease(iterFrac);
+
+  // Scale factor to fill the canvas
+  const posScale = Math.min(w, h) / 350;
+
+  // Small jitter that decreases as folding progresses
+  const jitterScale = Math.max(0, 1 - fromStage / 8) * 4;
+
+  // Update positions by interpolating between stages
+  for (let i = 0; i < FOLD_N; i++) {
+    const from = foldStages[fromStage][i];
+    const to = foldStages[toStage][i];
+    foldCurrent[i].x = (lerp(from.x, to.x, lerpT) + Math.sin(t * 2 + i) * jitterScale) * posScale;
+    foldCurrent[i].y = (lerp(from.y, to.y, lerpT) + Math.cos(t * 2.5 + i * 1.3) * jitterScale) * posScale;
+  }
+
+  // Draw long-range contacts (dashed green)
+  foldContacts.forEach(({ a, b, appear }) => {
+    if (iter >= appear || (iter === appear - 1 && iterFrac > 0.7)) {
+      const cAlpha = iter > appear ? 0.35 : clamp((iterFrac - 0.7) / 0.3, 0, 0.35);
+      ctx.strokeStyle = `rgba(68,204,136,${cAlpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(cx + foldCurrent[a].x, cy + foldCurrent[a].y);
+      ctx.lineTo(cx + foldCurrent[b].x, cy + foldCurrent[b].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // Draw bonds — color by secondary structure at later iterations
+  for (let i = 0; i < FOLD_N - 1; i++) {
+    const a = foldCurrent[i];
+    const b = foldCurrent[i + 1];
+    const progress = clamp(fromStage / 8, 0, 1);
+    let r = 255, g = 136, bb = 68;
+    if (fromStage >= 4 && ssType[i] === 'helix') {
+      const helixBlend = clamp((fromStage - 4) / 4, 0, 1);
+      r = lerp(255, 255, helixBlend);
+      g = lerp(136, 80, helixBlend);
+      bb = lerp(68, 200, helixBlend);
+    }
+    const alpha = 0.25 + progress * 0.55;
+    ctx.strokeStyle = `rgba(${r|0},${g|0},${bb|0},${alpha})`;
+    ctx.lineWidth = 2.5 + progress * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + a.x, cy + a.y);
+    ctx.lineTo(cx + b.x, cy + b.y);
+    ctx.stroke();
+  }
+
+  // Draw residues
+  const progress = clamp(fromStage / 8, 0, 1);
+  for (let i = 0; i < FOLD_N; i++) {
+    const p = foldCurrent[i];
+    const px = cx + p.x;
+    const py = cy + p.y;
+
+    // Hue shifts by residue index for final structure
+    const hue = (i / FOLD_N) * 240 + 20;
+    const colorBlend = clamp((fromStage - 3) / 5, 0, 1);
+    const baseR = lerp(255, 80 + 175 * Math.cos(hue * Math.PI / 180), colorBlend);
+    const baseG = lerp(136, 80 + 175 * Math.cos((hue - 120) * Math.PI / 180), colorBlend);
+    const baseB = lerp(68, 80 + 175 * Math.cos((hue - 240) * Math.PI / 180), colorBlend);
+
+    // Glow
+    const glowR = 10 + progress * 8;
+    const grad = ctx.createRadialGradient(px, py, 2, px, py, glowR);
+    grad.addColorStop(0, `rgba(${baseR|0},${baseG|0},${baseB|0},${0.5 + progress * 0.4})`);
+    grad.addColorStop(1, `rgba(${baseR|0},${baseG|0},${baseB|0},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(px, py, glowR, 0, PI2);
+    ctx.fill();
+
+    // Sphere
+    const radius = 5 + progress * 3;
+    const sGrad = ctx.createRadialGradient(px - 2, py - 2, 1, px, py, radius);
+    sGrad.addColorStop(0, `rgba(${Math.min(255, baseR + 60)|0},${Math.min(255, baseG + 60)|0},${Math.min(255, baseB + 60)|0},0.95)`);
+    sGrad.addColorStop(1, `rgba(${baseR * 0.6|0},${baseG * 0.6|0},${baseB * 0.6|0},0.7)`);
+    ctx.fillStyle = sGrad;
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, PI2);
+    ctx.fill();
+  }
+
+  // Helix ribbon effect for later iterations
+  if (fromStage >= 5) {
+    const ribbonAlpha = clamp((fromStage - 5) / 3, 0, 0.25);
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let seg = 0; seg < 3; seg++) {
+      const start = Math.floor(seg * FOLD_N / 3) + 2;
+      const end = Math.floor((seg + 1) * FOLD_N / 3) - 2;
+      ctx.beginPath();
+      for (let i = start; i <= end; i++) {
+        const px = cx + foldCurrent[i].x;
+        const py = cy + foldCurrent[i].y;
+        if (i === start) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      const hue = seg * 80 + 200;
+      ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${ribbonAlpha})`;
+      ctx.stroke();
+    }
+  }
+
+  // Iteration markers at bottom
+  for (let i = 0; i < 8; i++) {
+    const mx = w / 2 - 4 * 30 + i * 30 + 15;
+    const my = h - 30;
+    const active = i < iter;
+    const current = i === iter && iter < 8;
+    ctx.beginPath();
+    ctx.arc(mx, my, 8, 0, PI2);
+    if (current) {
+      ctx.fillStyle = `rgba(255,200,100,${0.5 + 0.3 * Math.sin(t * 4)})`;
+    } else {
+      ctx.fillStyle = active ? `rgba(255,136,68,0.7)` : `rgba(255,255,255,0.1)`;
+    }
+    ctx.fill();
+    ctx.font = '9px "JetBrains Mono"';
+    ctx.fillStyle = (active || current) ? '#fff' : '#555';
+    ctx.textAlign = 'center';
+    ctx.fillText(i + 1, mx, my + 3);
+  }
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.fillStyle = '#666';
+  ctx.fillText('반복 횟수 (Iterations)', w / 2, h - 10);
+
+  // Status label
+  ctx.font = '13px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,180,100,0.85)';
+  ctx.textAlign = 'center';
+  const labelIdx = Math.min(iter, 8);
+  ctx.fillText(foldStatusLabels[labelIdx], w / 2, 25);
+
+  // RMSD-like quality indicator
+  const rmsd = lerp(25.0, 0.8, ease(clamp(fromStage / 8, 0, 1)));
+  ctx.font = '11px "JetBrains Mono"';
+  ctx.fillStyle = rmsd < 3 ? 'rgba(68,204,136,0.8)' : rmsd < 10 ? 'rgba(255,200,80,0.7)' : 'rgba(255,100,80,0.6)';
+  ctx.textAlign = 'right';
+  ctx.fillText(`RMSD ≈ ${rmsd.toFixed(1)} Å`, w - 20, 25);
+}
+
+function foldLoop(ts) {
+  if (!foldPlaying) return;
+  if (foldStartTs === 0) foldStartTs = ts;
+  foldTime = (ts - foldStartTs) / 1000;
+  drawFold(foldTime);
+  foldAnim = requestAnimationFrame(foldLoop);
+}
+
+function toggleFold() {
+  foldPlaying = !foldPlaying;
+  document.getElementById('btn-fold').innerHTML = foldPlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 접힘 시작';
+  if (foldPlaying) {
+    foldStartTs = 0;
+    foldTime = 0;
+    foldAnim = requestAnimationFrame(foldLoop);
+  }
+}
+
+// ============ SIDE CHAIN ANIMATION ============
+let sidePlaying = false, sideTime = 0, sideAnim = null;
+
+function drawSide(time) {
+  const canvas = document.getElementById('canvas-side');
+  const { w, h, ctx } = resizeCanvas(canvas, 380);
+  const t = time;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const nRes = 8;
+
+  // Backbone atoms: N - Cα - C' pattern per residue
+  // Zigzag pattern centered horizontally in the canvas
+  const bondLen = 24;
+  const backboneAtoms = []; // {x, y, type: 'N'|'Ca'|'C', resIdx}
+  const caPositions = [];   // Cα positions for side chain attachment
+
+  // Calculate total width needed, then center
+  const totalWidth = nRes * bondLen * 2.5;
+  const scale = Math.min(1, (w - 120) / totalWidth);
+  const bl = bondLen * scale;
+  const startX = (w - totalWidth * scale) / 2 + 20;
+  const centerY = h * 0.5;
+
+  let curX = startX, curY = centerY;
+  let curAngle = 0;
+
+  for (let i = 0; i < nRes; i++) {
+    // N atom
+    const nx = curX, ny = curY;
+    backboneAtoms.push({ x: nx, y: ny, type: 'N', resIdx: i });
+
+    // N → Cα bond: zigzag up/down alternating
+    const zigDir = (i % 2 === 0) ? -1 : 1;
+    curAngle = zigDir * 0.45; // ~25° alternating
+    const caX = nx + Math.cos(curAngle) * bl * 1.1;
+    const caY = ny + Math.sin(curAngle) * bl * 1.1;
+    backboneAtoms.push({ x: caX, y: caY, type: 'Ca', resIdx: i });
+    caPositions.push({ x: caX, y: caY, fromAngle: curAngle });
+
+    // Cα → C' bond: back toward horizontal
+    const cAngle = -zigDir * 0.35;
+    const cX = caX + Math.cos(cAngle) * bl * 0.95;
+    const cY = caY + Math.sin(cAngle) * bl * 0.95;
+    backboneAtoms.push({ x: cX, y: cY, type: 'C', resIdx: i });
+
+    // C' → next N (peptide bond, mostly horizontal)
+    curX = cX + bl * 0.8;
+    curY = cY + zigDir * bl * 0.15;
+  }
+
+  // Side chain data per residue (attached at Cα) — scaled up
+  const scScale = scale * 1.3;
+  const sideChains = [
+    [{ len: 30*scScale, chi: 0.5 }],                                                                       // Ala-like
+    [{ len: 32*scScale, chi: -0.4 }, { len: 26*scScale, chi: 0.7 }],                                       // Leu-like
+    [{ len: 34*scScale, chi: 0.3 }, { len: 28*scScale, chi: -0.6 }, { len: 22*scScale, chi: 0.9 }],        // Met-like
+    [{ len: 28*scScale, chi: -0.6 }],                                                                       // Ser-like
+    [{ len: 30*scScale, chi: 0.5 }, { len: 28*scScale, chi: -0.3 }, { len: 26*scScale, chi: 0.5 }, { len: 22*scScale, chi: -0.4 }], // Arg-like
+    [{ len: 30*scScale, chi: 0.8 }, { len: 24*scScale, chi: -0.5 }],                                       // Asp-like
+    [{ len: 34*scScale, chi: -0.2 }, { len: 28*scScale, chi: 0.6 }, { len: 24*scScale, chi: -0.8 }],       // Glu-like
+    [{ len: 28*scScale, chi: 0.7 }],                                                                        // Cys-like
+  ];
+
+  const aaNames = ['Ala', 'Leu', 'Met', 'Ser', 'Arg', 'Asp', 'Glu', 'Cys'];
+
+  const growProgress = clamp((Math.sin(t * 0.5) + 1) / 2 * 1.3, 0, 1);
+
+  // Draw backbone bonds (N-Cα-C'-N-Cα-C'...)
+  for (let i = 0; i < backboneAtoms.length - 1; i++) {
+    const a = backboneAtoms[i];
+    const b = backboneAtoms[i + 1];
+    // Peptide bonds (C'→N between residues) slightly different color
+    const isPeptide = a.type === 'C' && b.type === 'N';
+    ctx.strokeStyle = isPeptide ? 'rgba(255,180,100,0.3)' : 'rgba(255,136,68,0.45)';
+    ctx.lineWidth = isPeptide ? 3 : 3.5;
+    if (isPeptide) { ctx.setLineDash([4, 3]); }
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw backbone atom labels (tiny, for N and C')
+  for (let i = 0; i < backboneAtoms.length; i++) {
+    const a = backboneAtoms[i];
+    if (a.type !== 'Ca') {
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 4, 0, PI2);
+      ctx.fillStyle = a.type === 'N' ? 'rgba(80,130,255,0.5)' : 'rgba(255,80,80,0.4)';
+      ctx.fill();
+    }
+  }
+
+  // Draw side chains from Cα
+  for (let i = 0; i < nRes; i++) {
+    const ca = caPositions[i];
+    const sc = sideChains[i];
+
+    const resGrowDelay = i * 0.08;
+    const resGrow = clamp((growProgress - resGrowDelay) / (1 - resGrowDelay * 2), 0, 1);
+
+    // Side chain direction: perpendicular to backbone, alternating up/down
+    const caIdx = i * 3 + 1;
+    const prevAtom = backboneAtoms[caIdx - 1]; // N
+    const nextAtom = backboneAtoms[Math.min(caIdx + 1, backboneAtoms.length - 1)]; // C'
+    const backboneDir = Math.atan2(nextAtom.y - prevAtom.y, nextAtom.x - prevAtom.x);
+    // Side chain goes perpendicular — alternate direction for visual clarity
+    const sideDir = (i % 2 === 0) ? -1 : 1;
+    const bisector = backboneDir + sideDir * Math.PI / 2;
+
+    if (resGrow > 0) {
+      let prevX = ca.x;
+      let prevY = ca.y;
+      let baseAngle = bisector;
+
+      for (let j = 0; j < sc.length; j++) {
+        const bondGrow = clamp((resGrow - j / sc.length) * sc.length, 0, 1);
+        if (bondGrow <= 0) break;
+
+        const bond = sc[j];
+        const angle = baseAngle + bond.chi;
+        const len = bond.len * ease(bondGrow);
+        const nx = prevX + Math.cos(angle) * len;
+        const ny = prevY + Math.sin(angle) * len;
+
+        // Bond line
+        ctx.strokeStyle = `rgba(150,200,255,${0.3 + bondGrow * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(nx, ny);
+        ctx.stroke();
+
+        // Chi angle arc indicator
+        if (j === 0 && bondGrow > 0.8) {
+          const arcR = 12;
+          const startA = baseAngle - 0.3;
+          const endA = angle;
+          ctx.beginPath();
+          ctx.arc(prevX, prevY, arcR, startA, endA, endA < startA);
+          ctx.strokeStyle = `rgba(255,220,100,${(bondGrow-0.8)*5*0.4})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+
+        // Joint atom
+        if (j < sc.length - 1) {
+          ctx.beginPath();
+          ctx.arc(nx, ny, 4, 0, PI2);
+          ctx.fillStyle = `rgba(150,200,255,${bondGrow * 0.7})`;
+          ctx.fill();
+        } else {
+          // Terminal atom with glow
+          const tGrad = ctx.createRadialGradient(nx, ny, 1, nx, ny, 8);
+          tGrad.addColorStop(0, `rgba(100,220,255,${bondGrow * 0.8})`);
+          tGrad.addColorStop(1, `rgba(100,220,255,0)`);
+          ctx.fillStyle = tGrad;
+          ctx.beginPath();
+          ctx.arc(nx, ny, 8, 0, PI2);
+          ctx.fill();
+        }
+
+        prevX = nx;
+        prevY = ny;
+        baseAngle = angle;
+      }
+
+      // Chi label and residue name
+      if (resGrow > 0.6) {
+        const labelAlpha = (resGrow - 0.6) * 2.5 * 0.5;
+        ctx.font = '9px "JetBrains Mono"';
+        ctx.textAlign = 'center';
+        const chiLabel = sc.length <= 1 ? 'χ₁' : sc.length === 2 ? 'χ₁,χ₂' : sc.length === 3 ? 'χ₁-χ₃' : 'χ₁-χ₄';
+        // Place label offset from side chain direction
+        const labelX = ca.x + Math.cos(bisector + Math.PI) * 22;
+        const labelY = ca.y + Math.sin(bisector + Math.PI) * 22;
+        ctx.fillStyle = `rgba(255,220,100,${labelAlpha})`;
+        ctx.fillText(chiLabel, labelX, labelY);
+        ctx.fillStyle = `rgba(200,200,220,${labelAlpha * 0.7})`;
+        ctx.font = '8px "Noto Sans KR"';
+        ctx.fillText(aaNames[i], labelX, labelY + 12);
+      }
+    }
+
+    // Cα sphere (always visible, larger than N/C')
+    const bGrad = ctx.createRadialGradient(ca.x-2, ca.y-2, 2, ca.x, ca.y, 11);
+    bGrad.addColorStop(0, 'rgba(255,160,80,0.9)');
+    bGrad.addColorStop(1, 'rgba(255,100,40,0.3)');
+    ctx.fillStyle = bGrad;
+    ctx.beginPath();
+    ctx.arc(ca.x, ca.y, 11, 0, PI2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,136,68,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Cα label
+    ctx.font = '8px "JetBrains Mono"';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Cα', ca.x, ca.y + 3);
+  }
+
+  // Labels
+  ctx.font = '12px "Noto Sans KR"';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,136,68,0.6)';
+  ctx.fillText('● 백본 (N-Cα-C\' backbone)', 20, 22);
+  ctx.fillStyle = 'rgba(80,130,255,0.5)';
+  ctx.fillText('● N', 20, 38);
+  ctx.fillStyle = 'rgba(255,80,80,0.4)';
+  ctx.fillText('● C\'', 50, 38);
+  ctx.fillStyle = 'rgba(150,200,255,0.6)';
+  ctx.fillText('● 곁사슬 (Side Chain)', 80, 38);
+  ctx.fillStyle = 'rgba(255,220,100,0.5)';
+  ctx.fillText('⌒ χ 비틀림 각도', 230, 38);
+
+  ctx.font = '11px "Noto Sans KR"';
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'center';
+  ctx.fillText('Cα에서의 비틀림 각도(χ₁, χ₂, ...)에 의해 곁사슬의 3D 배향이 결정됩니다', w/2, h - 12);
+}
+
+function sideLoop(ts) {
+  if (!sidePlaying) return;
+  sideTime = ts / 1000;
+  drawSide(sideTime);
+  sideAnim = requestAnimationFrame(sideLoop);
+}
+
+function toggleSide() {
+  sidePlaying = !sidePlaying;
+  document.getElementById('btn-side').innerHTML = sidePlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 재생';
+  if (sidePlaying) sideAnim = requestAnimationFrame(sideLoop);
+}
+
+// ============ PIPELINE ANIMATION ============
+let pipePlaying = false, pipeTime = 0, pipeAnim = null;
+
+function drawPipeline(time) {
+  const canvas = document.getElementById('canvas-pipeline');
+  const { w, h, ctx } = resizeCanvas(canvas, 500);
+  const t = time;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Pipeline stage (cycles through)
+  const totalDuration = 12;
+  const stage = (t % totalDuration) / totalDuration; // 0-1
+
+  // Light up pipeline steps
+  const steps = document.querySelectorAll('.pipeline-step');
+  const arrows = document.querySelectorAll('.pipeline-arrow');
+  const activeStep = Math.floor(stage * 5);
+
+  steps.forEach((s, i) => {
+    s.classList.toggle('lit', i <= activeStep);
+    if (i <= activeStep) {
+      s.style.boxShadow = i === activeStep
+        ? '0 0 25px rgba(170,102,255,0.4)'
+        : '0 0 10px rgba(170,102,255,0.15)';
+    } else {
+      s.style.boxShadow = 'none';
+    }
+  });
+  arrows.forEach((a, i) => a.classList.toggle('lit', i < activeStep));
+
+  // Draw detailed view based on current stage
+  const centerX = w / 2;
+  const centerY = h / 2;
+
+  if (activeStep === 0) {
+    // Input sequence
+    ctx.font = '500 16px "Noto Sans KR"';
+    ctx.fillStyle = '#aaa';
+    ctx.textAlign = 'center';
+    ctx.fillText('입력: 아미노산 서열', centerX, 40);
+
+    const seq = 'MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSH';
+    const visible = Math.floor(stage * 5 * seq.length);
+    ctx.font = '16px "JetBrains Mono"';
+    const seqDisplay = seq.substring(0, Math.min(visible, seq.length));
+
+    for (let i = 0; i < seqDisplay.length; i++) {
+      const col = i % 25;
+      const row = Math.floor(i / 25);
+      const cx = centerX - 12 * 12 + col * 24;
+      const cy = centerY - 30 + row * 35;
+
+      const hue = (i * 7) % 360;
+      ctx.fillStyle = `hsla(${hue},70%,65%,0.8)`;
+      ctx.textAlign = 'center';
+      ctx.fillText(seqDisplay[i], cx, cy);
+    }
+  } else if (activeStep === 1) {
+    // MSA search
+    ctx.font = '500 16px "Noto Sans KR"';
+    ctx.fillStyle = var_msa;
+    ctx.textAlign = 'center';
+    ctx.fillText('데이터베이스에서 유사 서열 검색', centerX, 40);
+
+    const nFound = Math.floor(((stage * 5 - 1)) * 50);
+    for (let r = 0; r < Math.min(nFound, 12); r++) {
+      const ry = 70 + r * 30;
+      for (let c = 0; c < 30; c++) {
+        const cx = centerX - 15 * 14 + c * 14 + 7;
+        const match = Math.random() > 0.2;
+        ctx.fillStyle = match ? `rgba(68,136,255,${0.3 + Math.random()*0.4})` : 'rgba(255,100,100,0.2)';
+        ctx.fillRect(cx - 5, ry - 8, 12, 16);
+      }
+      ctx.font = '9px "JetBrains Mono"';
+      ctx.fillStyle = '#555';
+      ctx.textAlign = 'right';
+      ctx.fillText(`seq_${r+1}`, centerX - 15*14 - 5, ry + 4);
+    }
+  } else if (activeStep === 2) {
+    // Evoformer
+    ctx.font = '500 16px "Noto Sans KR"';
+    ctx.fillStyle = var_msa;
+    ctx.textAlign = 'center';
+    ctx.fillText('Evoformer: MSA + 쌍 표현 교차 업데이트', centerX, 40);
+
+    const evoProgress = (stage * 5 - 2);
+    const block = Math.floor(evoProgress * 48);
+
+    // Mini MSA
+    const msaW = 150, msaH = 100;
+    const msaX = centerX - 120, msaY = centerY - msaH/2;
+    ctx.strokeStyle = var_msa;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(msaX, msaY, msaW, msaH, 8);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(68,136,255,0.05)';
+    ctx.fill();
+    ctx.font = '11px "Noto Sans KR"';
+    ctx.fillStyle = var_msa;
+    ctx.textAlign = 'center';
+    ctx.fillText('MSA', msaX + msaW/2, msaY - 5);
+
+    // Mini Pair
+    const pairS = 100;
+    const pairMX = centerX + 40, pairMY = centerY - pairS/2;
+    ctx.strokeStyle = var_pair;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(pairMX, pairMY, pairS, pairS, 8);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(68,204,136,0.05)';
+    ctx.fill();
+    ctx.fillStyle = var_pair;
+    ctx.fillText('Pair', pairMX + pairS/2, pairMY - 5);
+
+    // Animated particles between
+    for (let p = 0; p < 4; p++) {
+      const prog = ((t * 1.5 + p * 0.25) % 1);
+      const px = lerp(msaX + msaW, pairMX, prog);
+      const py = centerY - 10 + Math.sin(prog * Math.PI * 2) * 10;
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, PI2);
+      ctx.fillStyle = `rgba(170,102,255,${Math.sin(prog*Math.PI)})`;
+      ctx.fill();
+    }
+    for (let p = 0; p < 4; p++) {
+      const prog = ((t * 1.5 + p * 0.25 + 0.5) % 1);
+      const px = lerp(pairMX, msaX + msaW, prog);
+      const py = centerY + 10 + Math.sin(prog * Math.PI * 2) * 10;
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, PI2);
+      ctx.fillStyle = `rgba(170,102,255,${Math.sin(prog*Math.PI)})`;
+      ctx.fill();
+    }
+
+    ctx.font = '700 20px "JetBrains Mono"';
+    ctx.fillStyle = var_msa;
+    ctx.textAlign = 'center';
+    ctx.fillText(`Block ${block}/48`, centerX, h - 40);
+  } else if (activeStep === 3) {
+    // Structure Module
+    ctx.font = '500 16px "Noto Sans KR"';
+    ctx.fillStyle = 'rgb(255,136,68)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Structure Module: 3D 구조 반복 정제', centerX, 40);
+
+    const structProgress = (stage * 5 - 3);
+    const iter = Math.floor(structProgress * 8);
+
+    // Draw folding protein
+    const foldN = 18;
+    for (let i = 0; i < foldN; i++) {
+      const angle = i * 0.45;
+      const r = 80 + Math.sin(i * 0.3) * 30;
+      const targetX = Math.cos(angle) * r * 0.7;
+      const targetY = Math.sin(angle) * r * 0.5 + (i - foldN/2) * 4;
+      const randX = Math.sin(i * 3.7 + 1) * 180;
+      const randY = Math.cos(i * 2.3 + 5) * 120;
+      const p = ease(clamp(structProgress, 0, 1));
+      const px = centerX + lerp(randX, targetX, p);
+      const py = centerY + lerp(randY, targetY, p);
+
+      if (i > 0) {
+        const prevAngle = (i-1) * 0.45;
+        const prevR = 80 + Math.sin((i-1) * 0.3) * 30;
+        const prevTX = Math.cos(prevAngle) * prevR * 0.7;
+        const prevTY = Math.sin(prevAngle) * prevR * 0.5 + (i-1 - foldN/2) * 4;
+        const prevRX = Math.sin((i-1) * 3.7 + 1) * 180;
+        const prevRY = Math.cos((i-1) * 2.3 + 5) * 120;
+        const ppx = centerX + lerp(prevRX, prevTX, p);
+        const ppy = centerY + lerp(prevRY, prevTY, p);
+
+        ctx.strokeStyle = `rgba(255,136,68,${0.3+p*0.4})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(ppx, ppy);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+      }
+
+      const grad = ctx.createRadialGradient(px, py, 2, px, py, 8);
+      grad.addColorStop(0, `rgba(255,160,80,0.9)`);
+      grad.addColorStop(1, `rgba(255,100,40,0.2)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px, py, 8, 0, PI2);
+      ctx.fill();
+    }
+
+    ctx.font = '700 20px "JetBrains Mono"';
+    ctx.fillStyle = 'rgb(255,136,68)';
+    ctx.fillText(`Iteration ${iter}/8`, centerX, h - 40);
+  } else {
+    // Final structure
+    ctx.font = '500 16px "Noto Sans KR"';
+    ctx.fillStyle = var_pair;
+    ctx.textAlign = 'center';
+    ctx.fillText('최종 예측 구조 완성!', centerX, 40);
+
+    // Draw final folded protein with helices
+    const foldN = 30;
+    for (let i = 0; i < foldN; i++) {
+      const angle = i * 0.45;
+      const r = 100 + Math.sin(i * 0.25) * 40;
+      const px = centerX + Math.cos(angle) * r * 0.7;
+      const py = centerY + Math.sin(angle) * r * 0.4 + (i - foldN/2) * 2.5;
+
+      if (i > 0) {
+        const prevAngle = (i-1) * 0.45;
+        const prevR = 100 + Math.sin((i-1) * 0.25) * 40;
+        const ppx = centerX + Math.cos(prevAngle) * prevR * 0.7;
+        const ppy = centerY + Math.sin(prevAngle) * prevR * 0.4 + (i-1 - foldN/2) * 2.5;
+        ctx.strokeStyle = `rgba(68,204,136,0.6)`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(ppx, ppy);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+      }
+
+      // Rainbow coloring by position
+      const hue = (i / foldN) * 240;
+      const grad = ctx.createRadialGradient(px, py, 2, px, py, 10);
+      grad.addColorStop(0, `hsla(${hue},80%,65%,0.9)`);
+      grad.addColorStop(1, `hsla(${hue},80%,45%,0.2)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px, py, 10, 0, PI2);
+      ctx.fill();
+    }
+
+    // Confidence glow
+    const glowPulse = 0.5 + 0.5 * Math.sin(t * 2);
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 130, 0, PI2);
+    ctx.strokeStyle = `rgba(68,204,136,${0.1 + glowPulse * 0.15})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = '13px "Noto Sans KR"';
+    ctx.fillStyle = 'rgba(68,204,136,0.6)';
+    ctx.fillText('pLDDT 신뢰도 점수와 함께 출력', centerX, h - 40);
+  }
+}
+
+function pipeLoop(ts) {
+  if (!pipePlaying) return;
+  pipeTime = ts / 1000;
+  drawPipeline(pipeTime);
+  pipeAnim = requestAnimationFrame(pipeLoop);
+}
+
+function togglePipeline() {
+  pipePlaying = !pipePlaying;
+  document.getElementById('btn-pipe').innerHTML = pipePlaying ? '&#9646;&#9646; 일시정지' : '&#9654; 파이프라인 시작';
+  if (pipePlaying) pipeAnim = requestAnimationFrame(pipeLoop);
+}
+
+// ============ INITIAL DRAW ============
+window.addEventListener('load', () => {
+  // Draw initial static frames
+  drawMSA(0);
+  drawPair(0);
+  drawBidir(0);
+  drawIPA(0);
+  drawFold(0);
+  drawSide(0);
+  drawPipeline(0);
+});
+
+window.addEventListener('resize', () => {
+  if (!msaPlaying) drawMSA(msaTime);
+  if (!pairPlaying) drawPair(pairTime);
+  if (!bidirPlaying) drawBidir(bidirTime);
+  if (!ipaPlaying) drawIPA(ipaTime);
+  if (!foldPlaying) drawFold(foldTime);
+  if (!sidePlaying) drawSide(sideTime);
+  if (!pipePlaying) drawPipeline(pipeTime);
+  drawTriangleDiagrams();
+});
+
+// ============ TRIANGLE INEQUALITY DIAGRAMS ============
+function drawTriangleDiagrams() {
+  drawTriOK();
+  drawTriFail();
+}
+
+function drawTriOK() {
+  const canvas = document.getElementById('canvas-tri-ok');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = rect.width, h = rect.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Title
+  ctx.font = 'bold 14px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#44cc88';
+  ctx.textAlign = 'center';
+  ctx.fillText('✓ 삼각 부등식 만족', w/2, 24);
+  ctx.font = '11px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('3D 공간에 배치 가능', w/2, 40);
+
+  // Triangle vertices — valid distances: d(i,j)=8, d(i,k)=6, d(k,j)=5
+  const cx = w / 2, cy = h / 2 + 15;
+  const iX = cx - 90, iY = cy + 60;
+  const jX = cx + 90, jY = cy + 60;
+  const kX = cx, kY = cy - 70;
+
+  // Draw filled triangle with glow
+  ctx.beginPath();
+  ctx.moveTo(iX, iY); ctx.lineTo(jX, jY); ctx.lineTo(kX, kY); ctx.closePath();
+  ctx.fillStyle = 'rgba(68, 204, 136, 0.06)';
+  ctx.fill();
+
+  // Edges with distances
+  const edges = [
+    { x1: iX, y1: iY, x2: jX, y2: jY, d: '8 Å', label: 'd(i, j)', color: '#44cc88' },
+    { x1: iX, y1: iY, x2: kX, y2: kY, d: '6 Å', label: 'd(i, k)', color: '#66ddaa' },
+    { x1: kX, y1: kY, x2: jX, y2: jY, d: '5 Å', label: 'd(k, j)', color: '#66ddaa' },
+  ];
+
+  edges.forEach(e => {
+    // Edge line
+    ctx.beginPath();
+    ctx.moveTo(e.x1, e.y1); ctx.lineTo(e.x2, e.y2);
+    ctx.strokeStyle = e.color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Distance label
+    const mx = (e.x1 + e.x2) / 2;
+    const my = (e.y1 + e.y2) / 2;
+    const dx = e.x2 - e.x1, dy = e.y2 - e.y1;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const nx = -dy/len * 16, ny = dx/len * 16;
+
+    ctx.font = 'bold 13px "JetBrains Mono", monospace';
+    ctx.fillStyle = e.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(e.d, mx + nx, my + ny);
+
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText(e.label, mx + nx, my + ny + 14);
+  });
+
+  // Vertex nodes with glow
+  const nodes = [
+    { x: iX, y: iY, label: 'i', sub: '잔기 i' },
+    { x: jX, y: jY, label: 'j', sub: '잔기 j' },
+    { x: kX, y: kY, label: 'k', sub: '잔기 k' },
+  ];
+  nodes.forEach(n => {
+    const grd = ctx.createRadialGradient(n.x, n.y, 3, n.x, n.y, 22);
+    grd.addColorStop(0, 'rgba(68,204,136,0.5)');
+    grd.addColorStop(1, 'rgba(68,204,136,0)');
+    ctx.beginPath(); ctx.arc(n.x, n.y, 22, 0, PI2); ctx.fillStyle = grd; ctx.fill();
+
+    const sg = ctx.createRadialGradient(n.x-2, n.y-2, 2, n.x, n.y, 14);
+    sg.addColorStop(0, '#88ffcc');
+    sg.addColorStop(1, '#229966');
+    ctx.beginPath(); ctx.arc(n.x, n.y, 14, 0, PI2); ctx.fillStyle = sg; ctx.fill();
+
+    ctx.font = 'bold 14px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(n.label, n.x, n.y + 5);
+  });
+
+  // Check formulas at bottom
+  const checkY = h - 50;
+  ctx.font = '12px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#44cc88';
+  ctx.fillText('8 ≤ 6 + 5 = 11  ✓', w/2, checkY);
+  ctx.fillText('6 ≤ 8 + 5 = 13  ✓', w/2, checkY + 16);
+  ctx.fillText('5 ≤ 8 + 6 = 14  ✓', w/2, checkY + 32);
+}
+
+function drawTriFail() {
+  const canvas = document.getElementById('canvas-tri-fail');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = rect.width, h = rect.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Title
+  ctx.font = 'bold 14px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = '#ff5555';
+  ctx.textAlign = 'center';
+  ctx.fillText('✗ 삼각 부등식 위반', w/2, 24);
+  ctx.font = '11px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('3D 공간에 배치 불가능!', w/2, 40);
+
+  const cx = w / 2, cy = h / 2 + 15;
+
+  // Try to place: d(i,j)=5, d(i,k)=20, d(k,j)=30
+  // i and j are close (5Å), but k is very far from j (30Å) while relatively close to i (20Å)
+  // This is geometrically impossible because 30 > 20 + 5
+  // Show i and j close together, and k at distance 20 from i
+  // but mark the "claimed" 30Å to j as broken
+
+  const iX = cx - 25, iY = cy + 50;
+  const jX = cx + 25, jY = cy + 50;
+  // Place k at 20Å from i (scaled), but actual distance to j would be ~22, not 30
+  const kX = cx - 10, kY = cy - 80;
+
+  // Shaded area with error tint
+  ctx.beginPath();
+  ctx.moveTo(iX, iY); ctx.lineTo(jX, jY); ctx.lineTo(kX, kY); ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 60, 60, 0.06)';
+  ctx.fill();
+
+  // Edge i-j (5Å) — this one is fine
+  ctx.beginPath(); ctx.moveTo(iX, iY); ctx.lineTo(jX, jY);
+  ctx.strokeStyle = '#44cc88'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.font = 'bold 13px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#44cc88'; ctx.textAlign = 'center';
+  ctx.fillText('5 Å', (iX+jX)/2, iY + 24);
+  ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('d(i, j)', (iX+jX)/2, iY + 38);
+
+  // Edge i-k (20Å) — fine
+  ctx.beginPath(); ctx.moveTo(iX, iY); ctx.lineTo(kX, kY);
+  ctx.strokeStyle = '#66ddaa'; ctx.lineWidth = 2.5; ctx.stroke();
+  const mikX = (iX+kX)/2, mikY = (iY+kY)/2;
+  ctx.font = 'bold 13px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#66ddaa'; ctx.textAlign = 'center';
+  ctx.fillText('20 Å', mikX - 28, mikY + 4);
+  ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText('d(i, k)', mikX - 28, mikY + 18);
+
+  // Edge k-j (claimed 30Å but impossible) — draw as broken/dashed red
+  ctx.beginPath(); ctx.moveTo(kX, kY); ctx.lineTo(jX, jY);
+  ctx.strokeStyle = '#ff4444';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([6, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const mkjX = (kX+jX)/2, mkjY = (kY+jY)/2;
+  ctx.font = 'bold 13px "JetBrains Mono", monospace';
+  ctx.fillStyle = '#ff4444'; ctx.textAlign = 'center';
+  ctx.fillText('30 Å ?', mkjX + 28, mkjY + 4);
+  ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255,100,100,0.6)';
+  ctx.fillText('d(k, j)', mkjX + 28, mkjY + 18);
+
+  // X mark on the broken edge
+  const xxX = mkjX + 4, xxY = mkjY - 12;
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillStyle = 'rgba(255,50,50,0.7)';
+  ctx.fillText('✗', xxX, xxY);
+
+  // Vertex nodes
+  const nodes = [
+    { x: iX, y: iY, label: 'i' },
+    { x: jX, y: jY, label: 'j' },
+    { x: kX, y: kY, label: 'k' },
+  ];
+  nodes.forEach(n => {
+    const grd = ctx.createRadialGradient(n.x, n.y, 3, n.x, n.y, 22);
+    grd.addColorStop(0, 'rgba(255,100,80,0.5)');
+    grd.addColorStop(1, 'rgba(255,100,80,0)');
+    ctx.beginPath(); ctx.arc(n.x, n.y, 22, 0, PI2); ctx.fillStyle = grd; ctx.fill();
+
+    const sg = ctx.createRadialGradient(n.x-2, n.y-2, 2, n.x, n.y, 14);
+    sg.addColorStop(0, '#ffaa88');
+    sg.addColorStop(1, '#cc4422');
+    ctx.beginPath(); ctx.arc(n.x, n.y, 14, 0, PI2); ctx.fillStyle = sg; ctx.fill();
+
+    ctx.font = 'bold 14px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(n.label, n.x, n.y + 5);
+  });
+
+  // Violation explanation at bottom
+  const checkY = h - 58;
+  ctx.font = '12px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#44cc88';
+  ctx.fillText('5 ≤ 20 + 30 = 50  ✓', w/2, checkY);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillText('20 ≤ 5 + 30 = 35  ✓', w/2, checkY + 16);
+
+  ctx.fillStyle = '#ff4444';
+  ctx.font = 'bold 12px "JetBrains Mono", monospace';
+  ctx.fillText('30 ≤ 20 + 5 = 25  ✗  위반!', w/2, checkY + 34);
+
+  ctx.font = '11px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = 'rgba(255,130,100,0.7)';
+  ctx.fillText('i와 j가 5Å인데 k가 j에서 30Å → 불가능', w/2, checkY + 54);
+}
+
+// Draw on load
+drawTriangleDiagrams();
+</script>
+</body>
+</html>

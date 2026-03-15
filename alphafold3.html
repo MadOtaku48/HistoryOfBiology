@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaFold3 vs AlphaFold2: 구조 예측의 진화</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a1a;
+  --bg2: #0f0f2a;
+  --bg3: #141430;
+  --af2: #4488ff;
+  --af2-dim: rgba(68,136,255,0.15);
+  --af3: #aa44ff;
+  --af3b: #ff44aa;
+  --af3-dim: rgba(170,68,255,0.15);
+  --pair-color: #44cc88;
+  --text: #e0e0f0;
+  --text-dim: #8888aa;
+  --text-bright: #ffffff;
+  --danger: #ff4466;
+  --success: #44ee88;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  overflow-x: hidden;
+  line-height: 1.7;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* ===== HEADER ===== */
+.header {
+  text-align: center;
+  padding: 60px 20px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 30% 0%, rgba(68,136,255,0.12) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 0%, rgba(170,68,255,0.12) 0%, transparent 50%);
+  pointer-events: none;
+}
+.header h1 {
+  font-size: 2.6em;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--af2), var(--af3), var(--af3b));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+.header .subtitle {
+  font-size: 1.05em;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+.header .uni {
+  font-size: 0.85em;
+  color: var(--text-dim);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* ===== TAB NAV ===== */
+.tab-nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 10px 30px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(180deg, var(--bg) 70%, transparent);
+  flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 10px 22px;
+  border: 1px solid #333;
+  border-radius: 25px;
+  background: var(--bg2);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.tab-btn:hover { border-color: var(--af3); color: var(--text); }
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--af2), var(--af3));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 0 20px rgba(170,68,255,0.3);
+}
+
+/* ===== SECTIONS ===== */
+.section {
+  display: none;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+  animation: fadeIn 0.5s ease;
+}
+.section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.section-title {
+  font-size: 1.8em;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 30px;
+  background: linear-gradient(90deg, var(--af2), var(--af3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===== PIPELINE COMPARISON ===== */
+.pipeline-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 40px;
+}
+@media (max-width: 900px) {
+  .pipeline-compare { grid-template-columns: 1fr; }
+}
+
+.pipeline-card {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 30px;
+  border: 1px solid #222;
+  position: relative;
+  overflow: hidden;
+}
+.pipeline-card.af2 { border-color: rgba(68,136,255,0.3); }
+.pipeline-card.af3 { border-color: rgba(170,68,255,0.3); }
+.pipeline-card .card-title {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pipeline-card.af2 .card-title { color: var(--af2); }
+.pipeline-card.af3 .card-title { color: var(--af3); }
+
+.version-badge {
+  font-size: 0.5em;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 400;
+  vertical-align: middle;
+}
+.af2 .version-badge { background: var(--af2-dim); color: var(--af2); }
+.af3 .version-badge { background: var(--af3-dim); color: var(--af3); }
+
+/* Pipeline Flow */
+.pipeline-flow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.pipeline-stage {
+  position: relative;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: default;
+  z-index: 1;
+}
+.pipeline-stage:hover {
+  transform: scale(1.03);
+  z-index: 2;
+}
+.af2 .pipeline-stage {
+  background: rgba(68,136,255,0.08);
+  border: 1px solid rgba(68,136,255,0.2);
+}
+.af3 .pipeline-stage {
+  background: rgba(170,68,255,0.08);
+  border: 1px solid rgba(170,68,255,0.2);
+}
+.pipeline-stage .stage-label {
+  font-size: 0.75em;
+  color: var(--text-dim);
+  display: block;
+  margin-top: 2px;
+}
+.pipeline-stage.highlight-change {
+  border-color: var(--af3b);
+  box-shadow: 0 0 15px rgba(255,68,170,0.2);
+}
+.pipeline-arrow {
+  text-align: center;
+  font-size: 1.2em;
+  color: #444;
+  padding: 4px 0;
+}
+.af2 .pipeline-arrow { color: rgba(68,136,255,0.4); }
+.af3 .pipeline-arrow { color: rgba(170,68,255,0.4); }
+
+/* Pipeline canvas */
+.pipeline-canvas {
+  width: 100%;
+  height: 120px;
+  margin-top: 20px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+}
+
+/* ===== KEY CHANGES BOX ===== */
+.key-changes {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 30px;
+  border: 1px solid rgba(170,68,255,0.2);
+  margin-top: 20px;
+}
+.key-changes h3 {
+  font-size: 1.2em;
+  color: var(--af3);
+  margin-bottom: 15px;
+}
+.change-item {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 14px;
+  align-items: flex-start;
+}
+.change-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1em;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.change-icon.removed { background: rgba(255,68,100,0.15); color: var(--danger); }
+.change-icon.added { background: rgba(68,238,136,0.15); color: var(--success); }
+.change-icon.changed { background: rgba(255,170,68,0.15); color: #ffaa44; }
+.change-text { font-size: 0.92em; line-height: 1.6; }
+.change-text strong { color: var(--text-bright); }
+
+/* ===== EVOFORMER / PAIRFORMER ===== */
+.arch-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+@media (max-width: 900px) {
+  .arch-compare { grid-template-columns: 1fr; }
+}
+
+.arch-card {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 25px;
+  border: 1px solid #222;
+}
+.arch-card h3 {
+  font-size: 1.2em;
+  margin-bottom: 15px;
+}
+
+.track-diagram {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+}
+.track-diagram canvas {
+  width: 100%;
+  height: 400px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.3);
+}
+
+/* ===== DIFFUSION SECTION ===== */
+.diffusion-container {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 30px;
+  border: 1px solid rgba(170,68,255,0.2);
+  margin-bottom: 30px;
+}
+.diffusion-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-top: 20px;
+}
+@media (max-width: 900px) {
+  .diffusion-compare { grid-template-columns: 1fr; }
+}
+
+.diffusion-canvas-wrap {
+  position: relative;
+}
+.diffusion-canvas-wrap canvas {
+  width: 100%;
+  height: 350px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+}
+.diffusion-canvas-wrap h4 {
+  font-size: 1em;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.af2-label { color: var(--af2); }
+.af3-label { color: var(--af3); }
+
+.noise-indicator {
+  text-align: center;
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
+.noise-bar {
+  width: 100%;
+  height: 8px;
+  background: #1a1a2a;
+  border-radius: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+.noise-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+  background: linear-gradient(90deg, var(--af3), var(--af3b));
+}
+
+/* Diffusion arch */
+.diff-arch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+.diff-arch-block {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75em;
+  font-weight: 500;
+  text-align: center;
+  min-width: 80px;
+}
+.diff-arch-arrow {
+  color: #444;
+  font-size: 1.2em;
+}
+
+/* Feature comparison table */
+.feature-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 20px;
+  font-size: 0.9em;
+}
+.feature-table th {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 2px solid #333;
+  font-weight: 600;
+}
+.feature-table th:nth-child(2) { color: var(--af2); }
+.feature-table th:nth-child(3) { color: var(--af3); }
+.feature-table td {
+  padding: 10px 15px;
+  border-bottom: 1px solid #1a1a2e;
+  vertical-align: top;
+}
+.feature-table tr:hover td {
+  background: rgba(170,68,255,0.05);
+}
+.feature-table .label-col {
+  color: var(--text-dim);
+  font-weight: 500;
+  min-width: 140px;
+}
+
+/* ===== SCOPE SECTION ===== */
+.scope-visual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+@media (max-width: 900px) {
+  .scope-visual { grid-template-columns: 1fr; }
+}
+.scope-card {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 25px;
+  border: 1px solid #222;
+  text-align: center;
+}
+.scope-card h3 { margin-bottom: 15px; }
+.scope-card canvas {
+  width: 100%;
+  height: 300px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.3);
+}
+.scope-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 15px;
+}
+.scope-tag {
+  padding: 5px 14px;
+  border-radius: 15px;
+  font-size: 0.82em;
+  font-weight: 500;
+}
+.scope-tag.active {
+  background: rgba(68,238,136,0.12);
+  color: var(--success);
+  border: 1px solid rgba(68,238,136,0.3);
+}
+.scope-tag.inactive {
+  background: rgba(255,68,100,0.08);
+  color: var(--text-dim);
+  border: 1px solid rgba(255,68,100,0.15);
+  text-decoration: line-through;
+}
+
+/* ===== CONFIDENCE SECTION ===== */
+.confidence-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+@media (max-width: 900px) {
+  .confidence-grid { grid-template-columns: 1fr; }
+}
+.conf-card {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 25px;
+  border: 1px solid #222;
+}
+.conf-card h3 { font-size: 1.1em; margin-bottom: 12px; }
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.metric-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.metric-name {
+  font-weight: 500;
+  font-size: 0.9em;
+  min-width: 60px;
+}
+.metric-desc {
+  font-size: 0.82em;
+  color: var(--text-dim);
+}
+
+/* Playback controls */
+.play-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+.play-btn {
+  padding: 8px 20px;
+  border: 1px solid #444;
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85em;
+  transition: all 0.2s;
+}
+.play-btn:hover {
+  border-color: var(--af3);
+  background: rgba(170,68,255,0.1);
+}
+.play-btn.active {
+  background: var(--af3);
+  border-color: var(--af3);
+  color: white;
+}
+
+/* Info tooltips */
+.info-box {
+  background: rgba(170,68,255,0.08);
+  border: 1px solid rgba(170,68,255,0.2);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin: 15px 0;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+.info-box .label {
+  font-weight: 700;
+  color: var(--af3);
+  display: inline;
+}
+
+/* Particles background */
+#bgCanvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Number highlight */
+.num {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--af3b);
+  font-weight: 700;
+}
+.num-af2 {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--af2);
+  font-weight: 700;
+}
+
+/* Code-style blocks */
+.code-block {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid #222;
+  border-radius: 10px;
+  padding: 15px 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8em;
+  line-height: 1.8;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.code-comment { color: #666; }
+.code-key { color: var(--af3); }
+.code-val { color: var(--af3b); }
+.code-af2-key { color: var(--af2); }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>AlphaFold3 vs AlphaFold2</h1>
+  <div class="subtitle">구조 예측 아키텍처의 혁신적 진화 (Nature, 2024)</div>
+  <div class="uni">충북대학교 현대생물학사 | 2026</div>
+</div>
+
+<!-- TAB NAVIGATION -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('overview')">파이프라인 비교</button>
+  <button class="tab-btn" onclick="showTab('evoformer')">Evoformer → Pairformer</button>
+  <button class="tab-btn" onclick="showTab('diffusion')">구조 모듈 → 확산 모듈</button>
+  <button class="tab-btn" onclick="showTab('scope')">예측 범위 확장</button>
+  <button class="tab-btn" onclick="showTab('confidence')">신뢰도 & 환각 방지</button>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 1: OVERVIEW / PIPELINE COMPARISON    -->
+<!-- ============================================ -->
+<div class="section active" id="sec-overview">
+  <h2 class="section-title">파이프라인 비교 (Pipeline Comparison)</h2>
+
+  <div class="pipeline-compare">
+    <!-- AF2 Pipeline -->
+    <div class="pipeline-card af2">
+      <div class="card-title">AlphaFold2 <span class="version-badge">2021</span></div>
+      <div class="pipeline-flow">
+        <div class="pipeline-stage">서열 입력 (Sequence Input)<span class="stage-label">아미노산 서열</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage">MSA 검색 (MSA Search)<span class="stage-label">진화적 상동 서열 수집</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage" style="border-width:2px;">Evoformer <span class="num-af2">×48</span> 블록<span class="stage-label">MSA + Pair 이중 트랙 (dual track)</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage">구조 모듈 (Structure Module)<span class="stage-label">IPA, SE(3) 등변, <span class="num-af2">8</span>회 반복 정제</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage">3D 구조 출력<span class="stage-label">단백질만 (Protein only)</span></div>
+      </div>
+      <canvas id="pipelineCanvasAF2" class="pipeline-canvas"></canvas>
+    </div>
+
+    <!-- AF3 Pipeline -->
+    <div class="pipeline-card af3">
+      <div class="card-title">AlphaFold3 <span class="version-badge">2024</span></div>
+      <div class="pipeline-flow">
+        <div class="pipeline-stage">다중 입력 (Multi-Modal Input)<span class="stage-label">단백질 + DNA + RNA + 리간드 + 이온</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage">유전체 검색 (Genetic Search)<span class="stage-label">MSA + 템플릿 검색</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage highlight-change">MSA 모듈 <span class="num">×4</span> 블록만!<span class="stage-label">48→4로 대폭 축소</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage highlight-change">Pairformer <span class="num">×48</span> 블록<span class="stage-label">Single + Pair (MSA 트랙 없음!)</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage highlight-change">확산 모듈 (Diffusion Module)<span class="stage-label"><span class="num">20</span> 디노이징 스텝, 3+24+3 아키텍처</span></div>
+        <div class="pipeline-arrow">▼</div>
+        <div class="pipeline-stage">3D 구조 + 신뢰도<span class="stage-label">모든 생체분자 (All biomolecules)</span></div>
+      </div>
+      <canvas id="pipelineCanvasAF3" class="pipeline-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Key Changes Summary -->
+  <div class="key-changes">
+    <h3>핵심 변화 요약 (Key Changes)</h3>
+    <div class="change-item">
+      <div class="change-icon removed">✕</div>
+      <div class="change-text"><strong>MSA 트랙 축소:</strong> Evoformer의 48블록 MSA 처리 → 단 <span class="num">4</span>블록 전처리로 대폭 축소. 진화 정보는 Pair 표현으로 압축.</div>
+    </div>
+    <div class="change-item">
+      <div class="change-icon changed">↻</div>
+      <div class="change-text"><strong>Evoformer → Pairformer:</strong> MSA+Pair 이중 트랙 → Single+Pair 이중 트랙. MSA 표현(N<sub>seq</sub>×N<sub>res</sub>) 대신 Single 표현(n×384)으로 교체.</div>
+    </div>
+    <div class="change-item">
+      <div class="change-icon added">✓</div>
+      <div class="change-text"><strong>확산 모델 도입:</strong> IPA 구조 모듈(결정론적, 프레임 기반) → 확산 디노이징(확률적, 원자 좌표 직접 예측). DALL·E처럼 노이즈에서 구조를 생성.</div>
+    </div>
+    <div class="change-item">
+      <div class="change-icon added">✓</div>
+      <div class="change-text"><strong>범용 예측:</strong> 단백질만 → 단백질, DNA, RNA, 소분자, 이온, 공유결합 변형까지 모든 생체분자 복합체 예측 가능.</div>
+    </div>
+    <div class="change-item">
+      <div class="change-icon removed">✕</div>
+      <div class="change-text"><strong>SE(3) 등변성 제거:</strong> AF2의 IPA는 SE(3) 등변성을 엄격히 유지 → AF3의 확산 모듈은 등변성이 필요 없음! 아키텍처 단순화.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 2: EVOFORMER → PAIRFORMER           -->
+<!-- ============================================ -->
+<div class="section" id="sec-evoformer">
+  <h2 class="section-title">Evoformer → Pairformer 진화</h2>
+
+  <div class="arch-compare">
+    <!-- AF2 Evoformer -->
+    <div class="arch-card af2" style="border-color: rgba(68,136,255,0.3);">
+      <h3 style="color: var(--af2);">AF2: Evoformer (×48 블록)</h3>
+      <div class="track-diagram">
+        <canvas id="evoformerCanvas" width="600" height="400"></canvas>
+      </div>
+      <div class="info-box" style="border-color: rgba(68,136,255,0.2); background: rgba(68,136,255,0.05);">
+        <span class="label" style="color: var(--af2);">핵심 구조: </span>
+        두 개의 큰 병렬 트랙이 정보를 양방향으로 교환합니다.
+        <br>• <strong>MSA 표현</strong>: N<sub>seq</sub> × N<sub>res</sub> × 256 — 수천 개의 상동 서열 정보
+        <br>• <strong>Pair 표현</strong>: N<sub>res</sub> × N<sub>res</sub> × 128 — 잔기 쌍 관계
+        <br>• 48블록에 걸쳐 MSA↔Pair 상호 정보 교환 (Row/Column Attention, Outer Product Mean, Triangle Updates)
+      </div>
+    </div>
+
+    <!-- AF3 Pairformer -->
+    <div class="arch-card af3" style="border-color: rgba(170,68,255,0.3);">
+      <h3 style="color: var(--af3);">AF3: MSA Module(×4) + Pairformer(×48)</h3>
+      <div class="track-diagram">
+        <canvas id="pairformerCanvas" width="600" height="400"></canvas>
+      </div>
+      <div class="info-box">
+        <span class="label">핵심 변화: </span>
+        MSA 정보를 전처리 단계에서 Pair 표현으로 압축한 후, 메인 트렁크에서는 MSA를 사용하지 않습니다.
+        <br>• <strong>MSA Module (×4)</strong>: MSA 정보를 빠르게 Pair 표현에 주입
+        <br>• <strong>Single 표현</strong>: n × c<sub>s</sub>(=384) — MSA 표현을 대체
+        <br>• <strong>Pair 표현</strong>: n × n × c<sub>z</sub>(=128) — AF2와 동일한 Triangle Updates 유지
+        <br>• "Single attention with pair bias" — 새로운 어텐션 메커니즘
+      </div>
+    </div>
+  </div>
+
+  <div class="play-controls" style="margin-top: 20px;">
+    <button class="play-btn" id="evoPlayBtn" onclick="toggleEvoAnimation()">▶ 애니메이션 재생</button>
+    <button class="play-btn" onclick="resetEvoAnimation()">↺ 처음부터</button>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 3: STRUCTURE → DIFFUSION MODULE     -->
+<!-- ============================================ -->
+<div class="section" id="sec-diffusion">
+  <h2 class="section-title">구조 모듈 → 확산 모듈 (Diffusion Module)</h2>
+
+  <div class="diffusion-container">
+    <div class="diffusion-compare">
+      <!-- AF2 Structure Module -->
+      <div class="diffusion-canvas-wrap">
+        <h4 class="af2-label">AF2: 구조 모듈 (Structure Module)</h4>
+        <canvas id="structCanvas" width="600" height="350"></canvas>
+        <div class="info-box" style="margin-top: 10px; border-color: rgba(68,136,255,0.2); background: rgba(68,136,255,0.05);">
+          <span class="label" style="color: var(--af2);">특징:</span>
+          <br>• IPA (Invariant Point Attention) 사용
+          <br>• SE(3) 등변성 유지
+          <br>• 백본 프레임 (회전+이동) 기반
+          <br>• <span class="num-af2">8</span>회 반복 정제 (deterministic)
+          <br>• 같은 입력 → 항상 같은 출력
+          <br>• 토션 각도로 곁사슬 별도 처리
+          <br>• Violation loss 필요 (화학적 제약)
+        </div>
+      </div>
+
+      <!-- AF3 Diffusion Module -->
+      <div class="diffusion-canvas-wrap">
+        <h4 class="af3-label">AF3: 확산 모듈 (Diffusion Module)</h4>
+        <canvas id="diffusionCanvas" width="600" height="350"></canvas>
+        <div class="noise-indicator">
+          디노이징 스텝: <span id="diffStep">0</span> / 20 | 노이즈 레벨: <span id="noiseLevel">100</span>%
+          <div class="noise-bar"><div class="noise-fill" id="noiseFill" style="width:100%"></div></div>
+        </div>
+        <div class="info-box" style="margin-top:10px;">
+          <span class="label">특징:</span>
+          <br>• 디노이징 확산 (Denoising Diffusion) 접근
+          <br>• SE(3) 등변성 불필요! (단순화)
+          <br>• 원자 좌표 직접 예측 (프레임 없음)
+          <br>• <span class="num">20</span> 디노이징 스텝 (stochastic)
+          <br>• 다른 시드 → 다른 유효 구조 (생성 모델)
+          <br>• 모든 원자 직접 처리 (단백질+DNA+리간드)
+          <br>• Violation loss 불필요
+        </div>
+      </div>
+    </div>
+
+    <div class="play-controls">
+      <button class="play-btn" id="diffPlayBtn" onclick="toggleDiffusion()">▶ 확산 애니메이션</button>
+      <button class="play-btn" onclick="resetDiffusion()">↺ 리셋</button>
+    </div>
+
+    <!-- Diffusion Architecture Detail -->
+    <h3 style="color: var(--af3); margin-top: 25px; text-align: center; font-size: 1.1em;">
+      확산 모듈 내부 아키텍처 (3 + 24 + 3)
+    </h3>
+    <div class="diff-arch">
+      <div class="diff-arch-block" style="background: rgba(255,136,68,0.15); border: 1px solid rgba(255,136,68,0.3); color: #ff8844;">
+        서열-로컬<br>원자 어텐션<br><strong>×3</strong>
+      </div>
+      <div class="diff-arch-arrow">→</div>
+      <div class="diff-arch-block" style="background: rgba(170,68,255,0.15); border: 1px solid rgba(170,68,255,0.3); color: var(--af3); min-width: 120px;">
+        글로벌 토큰<br>어텐션<br><strong>×24</strong>
+      </div>
+      <div class="diff-arch-arrow">→</div>
+      <div class="diff-arch-block" style="background: rgba(255,136,68,0.15); border: 1px solid rgba(255,136,68,0.3); color: #ff8844;">
+        서열-로컬<br>원자 어텐션<br><strong>×3</strong>
+      </div>
+    </div>
+    <p style="text-align: center; font-size: 0.82em; color: var(--text-dim); margin-top: 10px;">
+      서열-로컬 원자 어텐션은 개별 잔기/뉴클레오타이드 내 원자를 처리하고,<br>
+      글로벌 토큰 어텐션은 전체 구조에 걸친 장거리 상호작용을 처리합니다.
+    </p>
+  </div>
+
+  <!-- Comparison Table -->
+  <table class="feature-table">
+    <thead>
+      <tr>
+        <th class="label-col">특성 (Feature)</th>
+        <th>AlphaFold2</th>
+        <th>AlphaFold3</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="label-col">접근 방식</td>
+        <td>결정론적 반복 정제<br>(Deterministic refinement)</td>
+        <td>확률적 디노이징 확산<br>(Stochastic denoising diffusion)</td>
+      </tr>
+      <tr>
+        <td class="label-col">좌표 표현</td>
+        <td>백본 프레임<br>(Rotation + Translation)</td>
+        <td>원자 좌표 직접<br>(Raw atom coordinates)</td>
+      </tr>
+      <tr>
+        <td class="label-col">등변성</td>
+        <td>SE(3) 등변 (IPA)</td>
+        <td>불필요 (확산이 학습)</td>
+      </tr>
+      <tr>
+        <td class="label-col">반복 횟수</td>
+        <td><span class="num-af2">8</span>회 정제</td>
+        <td><span class="num">20</span>회 디노이징 스텝</td>
+      </tr>
+      <tr>
+        <td class="label-col">곁사슬 처리</td>
+        <td>토션 각도 별도 예측</td>
+        <td>모든 원자 동시 예측</td>
+      </tr>
+      <tr>
+        <td class="label-col">화학적 제약</td>
+        <td>Violation loss 필요</td>
+        <td>확산이 자연스럽게 학습</td>
+      </tr>
+      <tr>
+        <td class="label-col">출력 다양성</td>
+        <td>동일 입력 → 동일 출력</td>
+        <td>다른 시드 → 다른 유효 구조</td>
+      </tr>
+      <tr>
+        <td class="label-col">영감</td>
+        <td>물리적 정제 반복</td>
+        <td>DALL·E, 이미지 생성 AI</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 4: EXPANDED SCOPE                    -->
+<!-- ============================================ -->
+<div class="section" id="sec-scope">
+  <h2 class="section-title">예측 범위 확장 (Expanded Prediction Scope)</h2>
+
+  <div class="scope-visual">
+    <!-- AF2 Scope -->
+    <div class="scope-card af2" style="border-color: rgba(68,136,255,0.3);">
+      <h3 style="color: var(--af2);">AlphaFold2: 단백질만</h3>
+      <canvas id="scopeCanvasAF2" width="500" height="300"></canvas>
+      <div class="scope-list">
+        <span class="scope-tag active">단백질 단량체 (Monomer)</span>
+        <span class="scope-tag active">단백질 다량체 (Multimer)</span>
+        <span class="scope-tag inactive">DNA</span>
+        <span class="scope-tag inactive">RNA</span>
+        <span class="scope-tag inactive">소분자 (Ligand)</span>
+        <span class="scope-tag inactive">이온 (Ion)</span>
+      </div>
+    </div>
+
+    <!-- AF3 Scope -->
+    <div class="scope-card af3" style="border-color: rgba(170,68,255,0.3);">
+      <h3 style="color: var(--af3);">AlphaFold3: 모든 생체분자</h3>
+      <canvas id="scopeCanvasAF3" width="500" height="300"></canvas>
+      <div class="scope-list">
+        <span class="scope-tag active">단백질 (Protein)</span>
+        <span class="scope-tag active">DNA</span>
+        <span class="scope-tag active">RNA</span>
+        <span class="scope-tag active">소분자/리간드 (Ligand)</span>
+        <span class="scope-tag active">이온 (Ion)</span>
+        <span class="scope-tag active">변형 잔기 (Modified residues)</span>
+        <span class="scope-tag active">공유결합 변형 (Covalent mods)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <span class="label">왜 중요한가? </span>
+    생물학적으로 의미 있는 대부분의 과정은 단백질이 다른 분자(DNA, 약물, 금속 이온 등)와
+    상호작용할 때 발생합니다. AF2는 단백질 구조만 예측할 수 있어 이런 복합체를 이해하는 데
+    한계가 있었습니다. AF3는 하나의 모델로 모든 생체분자 복합체를 예측할 수 있어,
+    <strong>약물 설계</strong>(단백질-리간드), <strong>유전자 조절</strong>(단백질-DNA),
+    <strong>RNA 생물학</strong> 등 광범위한 응용이 가능합니다.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 5: CONFIDENCE & HALLUCINATION        -->
+<!-- ============================================ -->
+<div class="section" id="sec-confidence">
+  <h2 class="section-title">신뢰도 & 환각 방지 (Confidence & Anti-Hallucination)</h2>
+
+  <div class="confidence-grid">
+    <!-- Confidence Metrics -->
+    <div class="conf-card" style="border-color: rgba(170,68,255,0.3);">
+      <h3 style="color: var(--af3);">신뢰도 지표 (Confidence Metrics)</h3>
+      <div class="metric-row">
+        <div class="metric-dot" style="background: var(--success);"></div>
+        <div class="metric-name">pLDDT</div>
+        <div class="metric-desc">잔기별 구조 정확도 (per-residue accuracy). AF2와 동일.</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-dot" style="background: var(--af2);"></div>
+        <div class="metric-name">PAE</div>
+        <div class="metric-desc">정렬 오류 예측 (Predicted Aligned Error). 도메인 간 상대 위치 신뢰도.</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-dot" style="background: var(--af3);"></div>
+        <div class="metric-name" style="color: var(--af3);">PDE</div>
+        <div class="metric-desc"><strong>신규!</strong> 쌍별 거리 오류 (Pairwise Distance Error). AF3에서 새로 추가.</div>
+      </div>
+
+      <div class="info-box" style="margin-top: 15px;">
+        <span class="label">Mini-Rollout 전략: </span>
+        확산 모델의 훈련 중에는 최종 구조를 직접 회귀할 수 없습니다 (노이즈가 있는 중간 상태에서 훈련하므로).
+        따라서 훈련 중 "mini-rollout"을 수행하여 — 즉, 부분적으로 디노이징을 실행하여 — 신뢰도 모듈이 최종
+        구조의 품질을 예측하도록 학습합니다.
+      </div>
+    </div>
+
+    <!-- Cross-distillation -->
+    <div class="conf-card" style="border-color: rgba(255,68,170,0.3);">
+      <h3 style="color: var(--af3b);">교차 증류로 환각 방지 (Cross-Distillation)</h3>
+      <canvas id="hallCanvas" width="500" height="200"></canvas>
+      <div class="info-box" style="margin-top: 15px; border-color: rgba(255,68,170,0.2); background: rgba(255,68,170,0.05);">
+        <span class="label" style="color: var(--af3b);">문제: </span>
+        확산 모델은 생성 모델이므로, 무질서한 영역(disordered regions)에서도 그럴듯한 구조를 "환각(hallucinate)"할 위험이 있습니다.
+      </div>
+      <div class="info-box">
+        <span class="label">해결책 — 교차 증류 (Cross-Distillation): </span>
+        AF-Multimer v2.3에서 생성한 예측 구조를 추가 훈련 데이터로 사용합니다.
+        AF2가 무질서한 영역에서 낮은 pLDDT를 출력하면, AF3도 해당 영역에서
+        "모른다"고 표현하는 법을 배웁니다. 이를 통해 환각을 크게 줄입니다.
+        <br><br>
+        <strong>핵심 통찰:</strong> AF2의 "약점"(무질서 영역 예측 실패)이 AF3의 "교사 신호"로 재활용됩니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: 0.8em;">
+  Abramson, J. et al. "Accurate structure prediction of biomolecular interactions with AlphaFold 3." <em>Nature</em> 630, 493–500 (2024).
+  <br>충북대학교 현대생물학사 수업자료 | 2026
+</div>
+
+<script>
+// ===== TAB NAVIGATION =====
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  event.target.classList.add('active');
+  // Trigger canvas redraws
+  if (id === 'evoformer') { drawEvoformer(); drawPairformer(); }
+  if (id === 'diffusion') { drawStructModule(); resetDiffusion(); }
+  if (id === 'scope') { drawScopeAF2(); drawScopeAF3(); }
+  if (id === 'confidence') { drawHallucination(); }
+  if (id === 'overview') { startPipelineParticles(); }
+}
+
+// ===== BACKGROUND PARTICLES =====
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+let bgParticles = [];
+
+function resizeBg() {
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+for (let i = 0; i < 60; i++) {
+  bgParticles.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: Math.random() * 1.5 + 0.5,
+    dx: (Math.random() - 0.5) * 0.3,
+    dy: (Math.random() - 0.5) * 0.3,
+    color: Math.random() > 0.5 ? 'rgba(68,136,255,0.3)' : 'rgba(170,68,255,0.3)'
+  });
+}
+
+function animBg() {
+  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+  bgParticles.forEach(p => {
+    p.x += p.dx; p.y += p.dy;
+    if (p.x < 0) p.x = bgCanvas.width;
+    if (p.x > bgCanvas.width) p.x = 0;
+    if (p.y < 0) p.y = bgCanvas.height;
+    if (p.y > bgCanvas.height) p.y = 0;
+    bgCtx.beginPath();
+    bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    bgCtx.fillStyle = p.color;
+    bgCtx.fill();
+  });
+  requestAnimationFrame(animBg);
+}
+animBg();
+
+// ===== UTILITY =====
+function getCanvas(id) {
+  const c = document.getElementById(id);
+  if (!c) return null;
+  const rect = c.getBoundingClientRect();
+  c.width = rect.width * 2;
+  c.height = rect.height * 2;
+  const ctx = c.getContext('2d');
+  ctx.scale(2, 2);
+  return { c, ctx, w: rect.width, h: rect.height };
+}
+
+function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+// ===== SECTION 1: PIPELINE PARTICLES =====
+let pipeParticlesAF2 = [], pipeParticlesAF3 = [];
+let pipeAnimId = null;
+
+function startPipelineParticles() {
+  if (pipeAnimId) cancelAnimationFrame(pipeAnimId);
+  const r2 = getCanvas('pipelineCanvasAF2');
+  const r3 = getCanvas('pipelineCanvasAF3');
+  if (!r2 || !r3) return;
+
+  pipeParticlesAF2 = [];
+  pipeParticlesAF3 = [];
+  for (let i = 0; i < 30; i++) {
+    pipeParticlesAF2.push({ x: Math.random() * r2.w, y: Math.random() * r2.h, speed: 0.5 + Math.random() * 1.5, phase: Math.random() * Math.PI * 2 });
+    pipeParticlesAF3.push({ x: Math.random() * r3.w, y: Math.random() * r3.h, speed: 0.5 + Math.random() * 1.5, phase: Math.random() * Math.PI * 2 });
+  }
+
+  function drawPipeParticles(cv, ctx, w, h, particles, color1, color2) {
+    ctx.clearRect(0, 0, w, h);
+    // Flow lines
+    const t = Date.now() * 0.001;
+    ctx.globalAlpha = 0.15;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      const yy = 20 + i * (h - 40) / 4;
+      ctx.moveTo(0, yy);
+      for (let x = 0; x < w; x += 5) {
+        ctx.lineTo(x, yy + Math.sin(x * 0.02 + t + i) * 10);
+      }
+      ctx.strokeStyle = i % 2 === 0 ? color1 : color2;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Particles
+    particles.forEach(p => {
+      p.x += p.speed;
+      if (p.x > w + 5) p.x = -5;
+      const yOff = Math.sin(p.x * 0.03 + p.phase + t) * 15;
+      const cy = h / 2 + yOff;
+      const grd = ctx.createRadialGradient(p.x, cy, 0, p.x, cy, 4);
+      grd.addColorStop(0, color1);
+      grd.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(p.x, cy, 3, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    });
+
+    // Labels
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = color1;
+    ctx.globalAlpha = 0.5;
+    ctx.fillText('데이터 흐름 (Data Flow)', 10, h - 8);
+    ctx.globalAlpha = 1;
+  }
+
+  function animate() {
+    const r2 = document.getElementById('pipelineCanvasAF2');
+    const r3 = document.getElementById('pipelineCanvasAF3');
+    if (!r2 || !r3) return;
+    const ctx2 = r2.getContext('2d');
+    const ctx3 = r3.getContext('2d');
+    const w2 = r2.width / 2, h2 = r2.height / 2;
+    const w3 = r3.width / 2, h3 = r3.height / 2;
+    drawPipeParticles(r2, ctx2, w2, h2, pipeParticlesAF2, '#4488ff', '#44cc88');
+    drawPipeParticles(r3, ctx3, w3, h3, pipeParticlesAF3, '#aa44ff', '#ff44aa');
+    pipeAnimId = requestAnimationFrame(animate);
+  }
+  animate();
+}
+setTimeout(startPipelineParticles, 100);
+
+// ===== SECTION 2: EVOFORMER / PAIRFORMER DIAGRAMS =====
+let evoAnimRunning = false, evoAnimId2 = null, evoPhase = 0;
+
+function drawEvoformer() {
+  const r = getCanvas('evoformerCanvas');
+  if (!r) return;
+  const { ctx, w, h } = r;
+  drawEvoFrame(ctx, w, h, evoPhase);
+}
+
+function drawEvoFrame(ctx, w, h, phase) {
+  ctx.clearRect(0, 0, w, h);
+  const t = phase;
+
+  // MSA Track
+  const msaX = 30, msaY = 40, msaW = w * 0.35, msaH = h * 0.35;
+  drawRoundedRect(ctx, msaX, msaY, msaW, msaH, 8, 'rgba(68,136,255,0.08)', 'rgba(68,136,255,0.4)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#4488ff';
+  ctx.fillText('MSA 표현', msaX + 10, msaY + 22);
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#6688aa';
+  ctx.fillText('Nseq × Nres × 256', msaX + 10, msaY + 40);
+  // MSA grid lines
+  ctx.globalAlpha = 0.15;
+  for (let i = 0; i < 8; i++) {
+    ctx.beginPath();
+    ctx.moveTo(msaX + 10, msaY + 55 + i * 12);
+    ctx.lineTo(msaX + msaW - 10, msaY + 55 + i * 12);
+    ctx.strokeStyle = '#4488ff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // Row/Column attention labels
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(68,136,255,0.5)';
+  ctx.fillText('Row Attn ↔', msaX + 10, msaY + msaH - 8);
+  ctx.fillText('Col Attn ↕', msaX + msaW - 70, msaY + msaH - 8);
+
+  // Pair Track
+  const pairX = w * 0.55, pairY = 40, pairW = w * 0.38, pairH = h * 0.35;
+  drawRoundedRect(ctx, pairX, pairY, pairW, pairH, 8, 'rgba(68,204,136,0.08)', 'rgba(68,204,136,0.4)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#44cc88';
+  ctx.fillText('Pair 표현', pairX + 10, pairY + 22);
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#66aa88';
+  ctx.fillText('Nres × Nres × 128', pairX + 10, pairY + 40);
+  // Pair matrix
+  ctx.globalAlpha = 0.1;
+  const gs = 12;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 6; j++) {
+      const brightness = Math.sin(i * 0.5 + j * 0.3 + t * 0.03) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(68,204,136,${brightness * 0.4})`;
+      ctx.fillRect(pairX + 15 + i * gs, pairY + 55 + j * gs, gs - 2, gs - 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(68,204,136,0.5)';
+  ctx.fillText('Triangle Updates △', pairX + 10, pairY + pairH - 8);
+
+  // Bidirectional arrows between MSA and Pair
+  const arrowY1 = msaY + msaH * 0.4;
+  const arrowY2 = msaY + msaH * 0.6;
+  const arrowXStart = msaX + msaW + 5;
+  const arrowXEnd = pairX - 5;
+
+  // Animated arrows
+  ctx.setLineDash([4, 4]);
+  ctx.lineDashOffset = -t * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(arrowXStart, arrowY1);
+  ctx.lineTo(arrowXEnd, arrowY1);
+  ctx.strokeStyle = 'rgba(68,136,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Arrow head
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(arrowXEnd - 8, arrowY1 - 4);
+  ctx.lineTo(arrowXEnd, arrowY1);
+  ctx.lineTo(arrowXEnd - 8, arrowY1 + 4);
+  ctx.strokeStyle = 'rgba(68,136,255,0.6)';
+  ctx.stroke();
+
+  ctx.setLineDash([4, 4]);
+  ctx.lineDashOffset = t * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(arrowXEnd, arrowY2);
+  ctx.lineTo(arrowXStart, arrowY2);
+  ctx.strokeStyle = 'rgba(68,204,136,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(arrowXStart + 8, arrowY2 - 4);
+  ctx.lineTo(arrowXStart, arrowY2);
+  ctx.lineTo(arrowXStart + 8, arrowY2 + 4);
+  ctx.strokeStyle = 'rgba(68,204,136,0.6)';
+  ctx.stroke();
+
+  // Labels for exchange
+  ctx.font = '9px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Outer Product Mean', (arrowXStart + arrowXEnd) / 2, arrowY1 - 6);
+  ctx.fillText('Pair → MSA bias', (arrowXStart + arrowXEnd) / 2, arrowY2 + 14);
+  ctx.textAlign = 'left';
+
+  // ×48 label
+  const blockY = h * 0.52;
+  drawRoundedRect(ctx, w * 0.25, blockY, w * 0.5, 35, 8, 'rgba(68,136,255,0.1)', 'rgba(68,136,255,0.3)');
+  ctx.font = 'bold 13px "JetBrains Mono"';
+  ctx.fillStyle = '#4488ff';
+  ctx.textAlign = 'center';
+  ctx.fillText('×48 Evoformer Blocks', w / 2, blockY + 22);
+  ctx.textAlign = 'left';
+
+  // Output arrow
+  ctx.beginPath();
+  ctx.moveTo(w / 2, blockY + 35);
+  ctx.lineTo(w / 2, blockY + 55);
+  ctx.strokeStyle = 'rgba(68,136,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 5, blockY + 50);
+  ctx.lineTo(w / 2, blockY + 55);
+  ctx.lineTo(w / 2 + 5, blockY + 50);
+  ctx.stroke();
+
+  // Structure Module
+  const smY = blockY + 60;
+  drawRoundedRect(ctx, w * 0.2, smY, w * 0.6, 40, 8, 'rgba(255,136,68,0.1)', 'rgba(255,136,68,0.3)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#ff8844';
+  ctx.textAlign = 'center';
+  ctx.fillText('구조 모듈 (IPA, SE(3), ×8 정제)', w / 2, smY + 25);
+  ctx.textAlign = 'left';
+
+  // Recycle arrow
+  const rcY = smY + 45;
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'center';
+  ctx.fillText('▼ 3D 단백질 구조 출력', w / 2, rcY + 15);
+  ctx.textAlign = 'left';
+}
+
+function drawPairformer() {
+  const r = getCanvas('pairformerCanvas');
+  if (!r) return;
+  const { ctx, w, h } = r;
+  drawPairformerFrame(ctx, w, h, evoPhase);
+}
+
+function drawPairformerFrame(ctx, w, h, phase) {
+  ctx.clearRect(0, 0, w, h);
+  const t = phase;
+
+  // MSA Module (small!)
+  const msaModX = w * 0.05, msaModY = 15, msaModW = w * 0.25, msaModH = 55;
+  drawRoundedRect(ctx, msaModX, msaModY, msaModW, msaModH, 8, 'rgba(68,136,255,0.06)', 'rgba(68,136,255,0.2)');
+  ctx.font = 'bold 10px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(68,136,255,0.6)';
+  ctx.fillText('MSA Module', msaModX + 8, msaModY + 18);
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.fillStyle = '#ff44aa';
+  ctx.fillText('×4 blocks only!', msaModX + 8, msaModY + 35);
+  ctx.font = '8px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillText('(대폭 축소)', msaModX + 8, msaModY + 48);
+
+  // Arrow from MSA to Pair
+  ctx.beginPath();
+  ctx.moveTo(msaModX + msaModW, msaModY + msaModH / 2);
+  const pairInjX = w * 0.6;
+  ctx.lineTo(pairInjX, msaModY + msaModH / 2);
+  ctx.lineTo(pairInjX, 95);
+  ctx.strokeStyle = 'rgba(68,136,255,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 3]);
+  ctx.lineDashOffset = -t * 0.5;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '8px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(68,136,255,0.4)';
+  ctx.fillText('MSA→Pair 정보 주입', msaModX + msaModW + 5, msaModY + msaModH / 2 - 5);
+
+  // Single Track
+  const singleX = 20, singleY = 100, singleW = w * 0.35, singleH = h * 0.3;
+  drawRoundedRect(ctx, singleX, singleY, singleW, singleH, 8, 'rgba(170,68,255,0.08)', 'rgba(170,68,255,0.4)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#aa44ff';
+  ctx.fillText('Single 표현', singleX + 10, singleY + 22);
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#8866aa';
+  ctx.fillText('n × cs (=384)', singleX + 10, singleY + 40);
+  // Single representation - a simple 1D vector visualization
+  ctx.globalAlpha = 0.3;
+  for (let i = 0; i < 12; i++) {
+    const val = Math.sin(i * 0.8 + t * 0.05) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(170,68,255,${val * 0.6 + 0.1})`;
+    ctx.fillRect(singleX + 12 + i * 13, singleY + 55, 10, singleH - 80);
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(170,68,255,0.5)';
+  ctx.fillText('Single Attn + Pair Bias', singleX + 10, singleY + singleH - 8);
+
+  // Pair Track
+  const pairX = w * 0.5, pairY = 100, pairW = w * 0.44, pairH = h * 0.3;
+  drawRoundedRect(ctx, pairX, pairY, pairW, pairH, 8, 'rgba(68,204,136,0.08)', 'rgba(68,204,136,0.4)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#44cc88';
+  ctx.fillText('Pair 표현', pairX + 10, pairY + 22);
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#66aa88';
+  ctx.fillText('n × n × cz (=128)', pairX + 10, pairY + 40);
+  // Pair matrix
+  ctx.globalAlpha = 0.15;
+  const gs = 12;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 6; j++) {
+      const brightness = Math.sin(i * 0.5 + j * 0.3 + t * 0.03) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(68,204,136,${brightness * 0.5})`;
+      ctx.fillRect(pairX + 15 + i * gs, pairY + 55 + j * gs, gs - 2, gs - 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(68,204,136,0.5)';
+  ctx.fillText('Triangle Updates △ (동일)', pairX + 10, pairY + pairH - 8);
+
+  // Bidirectional arrows Single ↔ Pair
+  const arrowY1 = singleY + singleH * 0.4;
+  const arrowY2 = singleY + singleH * 0.6;
+  const arrowXS = singleX + singleW + 5;
+  const arrowXE = pairX - 5;
+
+  ctx.setLineDash([4, 4]);
+  ctx.lineDashOffset = -t * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(arrowXS, arrowY1);
+  ctx.lineTo(arrowXE, arrowY1);
+  ctx.strokeStyle = 'rgba(170,68,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(arrowXE - 8, arrowY1 - 4); ctx.lineTo(arrowXE, arrowY1); ctx.lineTo(arrowXE - 8, arrowY1 + 4);
+  ctx.strokeStyle = 'rgba(170,68,255,0.6)'; ctx.stroke();
+
+  ctx.setLineDash([4, 4]);
+  ctx.lineDashOffset = t * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(arrowXE, arrowY2);
+  ctx.lineTo(arrowXS, arrowY2);
+  ctx.strokeStyle = 'rgba(68,204,136,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(arrowXS + 8, arrowY2 - 4); ctx.lineTo(arrowXS, arrowY2); ctx.lineTo(arrowXS + 8, arrowY2 + 4);
+  ctx.strokeStyle = 'rgba(68,204,136,0.6)'; ctx.stroke();
+
+  ctx.font = '9px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Single → Pair 전파', (arrowXS + arrowXE) / 2, arrowY1 - 6);
+  ctx.fillText('Pair bias → Single', (arrowXS + arrowXE) / 2, arrowY2 + 14);
+  ctx.textAlign = 'left';
+
+  // ×48 Pairformer block
+  const blockY = singleY + singleH + 15;
+  drawRoundedRect(ctx, w * 0.2, blockY, w * 0.6, 35, 8, 'rgba(170,68,255,0.1)', 'rgba(170,68,255,0.3)');
+  ctx.font = 'bold 13px "JetBrains Mono"';
+  ctx.fillStyle = '#aa44ff';
+  ctx.textAlign = 'center';
+  ctx.fillText('×48 Pairformer Blocks', w / 2, blockY + 22);
+  ctx.textAlign = 'left';
+
+  // No MSA callout
+  const noMsaX = w * 0.05, noMsaY = blockY + 5;
+  ctx.font = 'bold 10px "JetBrains Mono"';
+  ctx.fillStyle = '#ff44aa';
+  ctx.fillText('NO MSA track!', noMsaX, noMsaY + 12);
+
+  // Arrow to diffusion
+  ctx.beginPath();
+  ctx.moveTo(w / 2, blockY + 35);
+  ctx.lineTo(w / 2, blockY + 55);
+  ctx.strokeStyle = 'rgba(170,68,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 5, blockY + 50); ctx.lineTo(w / 2, blockY + 55); ctx.lineTo(w / 2 + 5, blockY + 50);
+  ctx.stroke();
+
+  // Diffusion Module
+  const dmY = blockY + 60;
+  drawRoundedRect(ctx, w * 0.15, dmY, w * 0.7, 40, 8, 'rgba(255,68,170,0.1)', 'rgba(255,68,170,0.3)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#ff44aa';
+  ctx.textAlign = 'center';
+  ctx.fillText('확산 모듈 (Diffusion, ×20 디노이징)', w / 2, dmY + 25);
+  ctx.textAlign = 'left';
+
+  const outY = dmY + 45;
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'center';
+  ctx.fillText('▼ 모든 생체분자 복합체 출력', w / 2, outY + 15);
+  ctx.textAlign = 'left';
+}
+
+function toggleEvoAnimation() {
+  evoAnimRunning = !evoAnimRunning;
+  document.getElementById('evoPlayBtn').textContent = evoAnimRunning ? '⏸ 일시정지' : '▶ 애니메이션 재생';
+  document.getElementById('evoPlayBtn').classList.toggle('active', evoAnimRunning);
+  if (evoAnimRunning) animateEvo();
+}
+
+function resetEvoAnimation() {
+  evoAnimRunning = false;
+  evoPhase = 0;
+  document.getElementById('evoPlayBtn').textContent = '▶ 애니메이션 재생';
+  document.getElementById('evoPlayBtn').classList.remove('active');
+  drawEvoformer();
+  drawPairformer();
+}
+
+function animateEvo() {
+  if (!evoAnimRunning) return;
+  evoPhase += 2;
+  const r1 = document.getElementById('evoformerCanvas');
+  const r2 = document.getElementById('pairformerCanvas');
+  if (r1) {
+    const ctx = r1.getContext('2d');
+    drawEvoFrame(ctx, r1.width / 2, r1.height / 2, evoPhase);
+  }
+  if (r2) {
+    const ctx = r2.getContext('2d');
+    drawPairformerFrame(ctx, r2.width / 2, r2.height / 2, evoPhase);
+  }
+  requestAnimationFrame(animateEvo);
+}
+
+// ===== SECTION 3: DIFFUSION ANIMATION =====
+let diffAnimRunning = false, diffStep = 0;
+let diffAtoms = [], structFrames = [];
+
+function initDiffAtoms(w, h) {
+  diffAtoms = [];
+  // Create atoms for protein (blue), DNA (green), ligand (yellow), ion (red)
+  const cx = w / 2, cy = h / 2;
+  // Target positions — a rough "complex" shape
+  const types = [
+    { color: '#4488ff', name: 'protein', count: 25, radius: 80 },
+    { color: '#44cc88', name: 'DNA', count: 12, radius: 50 },
+    { color: '#ffaa44', name: 'ligand', count: 6, radius: 20 },
+    { color: '#ff4466', name: 'ion', count: 4, radius: 30 },
+  ];
+  types.forEach((type, ti) => {
+    const baseAngle = ti * Math.PI / 2;
+    const bx = cx + Math.cos(baseAngle) * type.radius * 0.5;
+    const by = cy + Math.sin(baseAngle) * type.radius * 0.5;
+    for (let i = 0; i < type.count; i++) {
+      const angle = (i / type.count) * Math.PI * 2 + baseAngle;
+      const r = type.radius * (0.3 + Math.random() * 0.7);
+      diffAtoms.push({
+        targetX: bx + Math.cos(angle) * r,
+        targetY: by + Math.sin(angle) * r,
+        noiseX: Math.random() * w,
+        noiseY: Math.random() * h,
+        x: Math.random() * w,
+        y: Math.random() * h,
+        color: type.color,
+        name: type.name,
+        size: type.name === 'ion' ? 3 : (type.name === 'ligand' ? 4 : 3.5)
+      });
+    }
+  });
+}
+
+function initStructFrames(w, h) {
+  structFrames = [];
+  const cx = w / 2, cy = h / 2;
+  const n = 20;
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2;
+    const r = 60 + Math.sin(i * 0.5) * 20;
+    structFrames.push({
+      targetX: cx + Math.cos(angle) * r,
+      targetY: cy + Math.sin(angle) * r,
+      x: cx + Math.cos(angle) * (r * 0.3),
+      y: cy + Math.sin(angle) * (r * 0.3),
+      angle: angle,
+      iteration: 0
+    });
+  }
+}
+
+function drawStructModule() {
+  const r = getCanvas('structCanvas');
+  if (!r) return;
+  const { ctx, w, h } = r;
+  initStructFrames(w, h);
+  drawStructFrame(ctx, w, h, 0);
+}
+
+function drawStructFrame(ctx, w, h, iteration) {
+  ctx.clearRect(0, 0, w, h);
+
+  // Progress
+  const progress = Math.min(iteration / 8, 1);
+  ctx.font = '11px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(68,136,255,0.5)';
+  ctx.fillText(`반복 (iteration): ${Math.min(Math.floor(iteration), 8)} / 8`, 10, 20);
+
+  // Draw protein chain with frames
+  structFrames.forEach((f, i) => {
+    f.x += (f.targetX - f.x) * progress * 0.1;
+    f.y += (f.targetY - f.y) * progress * 0.1;
+
+    // Frame axes (rotation visualization)
+    const axLen = 8 + progress * 6;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.moveTo(f.x, f.y);
+    ctx.lineTo(f.x + Math.cos(f.angle + progress * 0.5) * axLen, f.y + Math.sin(f.angle + progress * 0.5) * axLen);
+    ctx.strokeStyle = '#ff8844';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(f.x, f.y);
+    ctx.lineTo(f.x + Math.cos(f.angle + Math.PI / 2 + progress * 0.5) * axLen, f.y + Math.sin(f.angle + Math.PI / 2 + progress * 0.5) * axLen);
+    ctx.strokeStyle = '#4488ff';
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Backbone connection
+    if (i > 0) {
+      const prev = structFrames[i - 1];
+      ctx.beginPath();
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(f.x, f.y);
+      ctx.strokeStyle = `rgba(68,136,255,${0.2 + progress * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Residue dot
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(68,136,255,${0.4 + progress * 0.6})`;
+    ctx.fill();
+  });
+
+  // Labels
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,136,68,0.6)';
+  ctx.fillText('프레임 (회전+이동)', 10, h - 30);
+  ctx.fillStyle = 'rgba(68,136,255,0.6)';
+  ctx.fillText('단백질만 예측', 10, h - 12);
+}
+
+function resetDiffusion() {
+  diffAnimRunning = false;
+  diffStep = 0;
+  document.getElementById('diffPlayBtn').textContent = '▶ 확산 애니메이션';
+  document.getElementById('diffPlayBtn').classList.remove('active');
+  document.getElementById('diffStep').textContent = '0';
+  document.getElementById('noiseLevel').textContent = '100';
+  document.getElementById('noiseFill').style.width = '100%';
+
+  const r = getCanvas('diffusionCanvas');
+  if (!r) return;
+  initDiffAtoms(r.w, r.h);
+  drawDiffFrame(r.ctx, r.w, r.h, 0);
+
+  drawStructModule();
+}
+
+function drawDiffFrame(ctx, w, h, step) {
+  ctx.clearRect(0, 0, w, h);
+  const progress = Math.min(step / 20, 1);
+  const noise = 1 - progress;
+
+  // Step indicator
+  ctx.font = '11px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(170,68,255,0.5)';
+  ctx.fillText(`디노이징 스텝: ${Math.min(Math.floor(step), 20)} / 20`, 10, 20);
+
+  // Draw atoms
+  diffAtoms.forEach(a => {
+    a.x = a.targetX * progress + a.noiseX * noise;
+    a.y = a.targetY * progress + a.noiseY * noise;
+    // Add jitter at intermediate steps
+    const jitter = noise * 15;
+    const jx = a.x + (Math.random() - 0.5) * jitter;
+    const jy = a.y + (Math.random() - 0.5) * jitter;
+
+    ctx.beginPath();
+    ctx.arc(jx, jy, a.size * (0.7 + progress * 0.3), 0, Math.PI * 2);
+    ctx.fillStyle = a.color;
+    ctx.globalAlpha = 0.3 + progress * 0.7;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+
+  // Draw bonds when getting clearer
+  if (progress > 0.4) {
+    ctx.globalAlpha = (progress - 0.4) * 1.5;
+    diffAtoms.forEach((a, i) => {
+      diffAtoms.forEach((b, j) => {
+        if (j <= i) return;
+        if (a.name !== b.name) return;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 25) {
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = a.color;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // Legend
+  if (progress > 0.5) {
+    ctx.globalAlpha = (progress - 0.5) * 2;
+    ctx.font = '9px "Noto Sans KR"';
+    const legend = [
+      { color: '#4488ff', label: '단백질' },
+      { color: '#44cc88', label: 'DNA' },
+      { color: '#ffaa44', label: '리간드' },
+      { color: '#ff4466', label: '이온' },
+    ];
+    legend.forEach((l, i) => {
+      ctx.beginPath();
+      ctx.arc(w - 70, h - 60 + i * 15, 4, 0, Math.PI * 2);
+      ctx.fillStyle = l.color;
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(l.label, w - 60, h - 56 + i * 15);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // Noise cloud overlay
+  if (noise > 0.1) {
+    ctx.globalAlpha = noise * 0.3;
+    for (let i = 0; i < 50 * noise; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#555';
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function toggleDiffusion() {
+  diffAnimRunning = !diffAnimRunning;
+  document.getElementById('diffPlayBtn').textContent = diffAnimRunning ? '⏸ 일시정지' : '▶ 확산 애니메이션';
+  document.getElementById('diffPlayBtn').classList.toggle('active', diffAnimRunning);
+  if (diffAnimRunning) animateDiffusion();
+}
+
+function animateDiffusion() {
+  if (!diffAnimRunning) return;
+  diffStep += 0.08;
+  if (diffStep > 21) {
+    diffStep = 21;
+    diffAnimRunning = false;
+    document.getElementById('diffPlayBtn').textContent = '▶ 확산 애니메이션';
+    document.getElementById('diffPlayBtn').classList.remove('active');
+  }
+
+  const clampedStep = Math.min(diffStep, 20);
+  document.getElementById('diffStep').textContent = Math.floor(clampedStep);
+  const noise = Math.max(0, Math.round((1 - clampedStep / 20) * 100));
+  document.getElementById('noiseLevel').textContent = noise;
+  document.getElementById('noiseFill').style.width = noise + '%';
+
+  // Update struct module too
+  const sc = document.getElementById('structCanvas');
+  if (sc) {
+    const sctx = sc.getContext('2d');
+    drawStructFrame(sctx, sc.width / 2, sc.height / 2, diffStep * 8 / 20);
+  }
+
+  const dc = document.getElementById('diffusionCanvas');
+  if (dc) {
+    const dctx = dc.getContext('2d');
+    drawDiffFrame(dctx, dc.width / 2, dc.height / 2, clampedStep);
+  }
+
+  requestAnimationFrame(animateDiffusion);
+}
+
+// ===== SECTION 4: SCOPE VISUALS =====
+function drawScopeAF2() {
+  const r = getCanvas('scopeCanvasAF2');
+  if (!r) return;
+  const { ctx, w, h } = r;
+
+  const cx = w / 2, cy = h / 2;
+  // Draw protein chains only
+  ctx.strokeStyle = '#4488ff';
+  ctx.lineWidth = 3;
+
+  // Helix-like shape
+  for (let chain = 0; chain < 2; chain++) {
+    const offsetX = chain === 0 ? -30 : 30;
+    ctx.beginPath();
+    for (let i = 0; i < 60; i++) {
+      const t = i / 60 * Math.PI * 4;
+      const x = cx + offsetX + Math.cos(t) * 25;
+      const y = cy - 80 + i * (160 / 60);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.globalAlpha = 0.6 + chain * 0.2;
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Label
+  ctx.font = 'bold 14px "Noto Sans KR"';
+  ctx.fillStyle = '#4488ff';
+  ctx.textAlign = 'center';
+  ctx.fillText('단백질만', cx, h - 15);
+  ctx.textAlign = 'left';
+
+  // Faded X marks for missing molecules
+  ctx.font = '24px sans-serif';
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = '#ff4466';
+  ctx.textAlign = 'center';
+  ctx.fillText('DNA ✕', cx - 80, 40);
+  ctx.fillText('RNA ✕', cx + 80, 40);
+  ctx.fillText('Ligand ✕', cx, h - 40);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+}
+
+function drawScopeAF3() {
+  const r = getCanvas('scopeCanvasAF3');
+  if (!r) return;
+  const { ctx, w, h } = r;
+
+  const cx = w / 2, cy = h / 2;
+
+  // Protein (center helix)
+  ctx.strokeStyle = '#aa44ff';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let i = 0; i < 40; i++) {
+    const t = i / 40 * Math.PI * 3;
+    const x = cx + Math.cos(t) * 20;
+    const y = cy - 50 + i * 2.5;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.globalAlpha = 0.8;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // DNA double helix (left)
+  const dnaX = cx - 80, dnaY = cy;
+  ctx.lineWidth = 2;
+  for (let strand = 0; strand < 2; strand++) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#44cc88';
+    for (let i = 0; i < 30; i++) {
+      const t = i / 30 * Math.PI * 3 + strand * Math.PI;
+      const x = dnaX + Math.cos(t) * 12;
+      const y = dnaY - 40 + i * 3;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.globalAlpha = 0.6;
+    ctx.stroke();
+  }
+  // Base pairs
+  ctx.globalAlpha = 0.2;
+  for (let i = 0; i < 8; i++) {
+    const y = dnaY - 35 + i * 10;
+    ctx.beginPath();
+    ctx.moveTo(dnaX - 10, y);
+    ctx.lineTo(dnaX + 10, y);
+    ctx.strokeStyle = '#44cc88';
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Ligand (small molecule, right)
+  const ligX = cx + 80, ligY = cy - 20;
+  ctx.strokeStyle = '#ffaa44';
+  ctx.lineWidth = 2;
+  // Hexagonal ring
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    const x = ligX + Math.cos(angle) * 15;
+    const y = ligY + Math.sin(angle) * 15;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.globalAlpha = 0.7;
+  ctx.stroke();
+  // Second ring fused
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    const x = ligX + 22 + Math.cos(angle) * 15;
+    const y = ligY + Math.sin(angle) * 15;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Ions
+  const ions = [[cx + 40, cy + 50], [cx - 50, cy + 40], [cx + 60, cy - 50]];
+  ions.forEach(([ix, iy]) => {
+    ctx.beginPath();
+    ctx.arc(ix, iy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff4466';
+    ctx.globalAlpha = 0.7;
+    ctx.fill();
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(ix, iy, 10, 0, Math.PI * 2);
+    ctx.strokeStyle = '#ff4466';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // RNA (bottom)
+  ctx.beginPath();
+  ctx.strokeStyle = '#ff8844';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 20; i++) {
+    const x = cx - 30 + i * 3;
+    const y = cy + 65 + Math.sin(i * 0.8) * 8;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.globalAlpha = 0.6;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Labels
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#aa44ff'; ctx.fillText('단백질', cx, cy - 65);
+  ctx.fillStyle = '#44cc88'; ctx.fillText('DNA', dnaX, dnaY - 50);
+  ctx.fillStyle = '#ffaa44'; ctx.fillText('리간드', ligX + 10, ligY - 25);
+  ctx.fillStyle = '#ff4466'; ctx.fillText('이온', cx + 60, cy - 60);
+  ctx.fillStyle = '#ff8844'; ctx.fillText('RNA', cx - 5, cy + 88);
+  ctx.textAlign = 'left';
+
+  // Surrounding glow
+  ctx.globalAlpha = 0.05;
+  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
+  grd.addColorStop(0, '#aa44ff');
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalAlpha = 1;
+}
+
+// ===== SECTION 5: HALLUCINATION DIAGRAM =====
+function drawHallucination() {
+  const r = getCanvas('hallCanvas');
+  if (!r) return;
+  const { ctx, w, h } = r;
+
+  // AF2 → AF3 cross-distillation diagram
+  const af2X = 50, af3X = w - 120;
+  const midY = h / 2;
+
+  // AF2 box
+  drawRoundedRect(ctx, af2X, midY - 30, 100, 60, 8, 'rgba(68,136,255,0.1)', 'rgba(68,136,255,0.4)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#4488ff';
+  ctx.textAlign = 'center';
+  ctx.fillText('AF-Multimer', af2X + 50, midY - 5);
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillText('v2.3', af2X + 50, midY + 12);
+
+  // AF3 box
+  drawRoundedRect(ctx, af3X, midY - 30, 100, 60, 8, 'rgba(170,68,255,0.1)', 'rgba(170,68,255,0.4)');
+  ctx.font = 'bold 12px "Noto Sans KR"';
+  ctx.fillStyle = '#aa44ff';
+  ctx.fillText('AlphaFold3', af3X + 50, midY - 5);
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillText('훈련', af3X + 50, midY + 12);
+  ctx.textAlign = 'left';
+
+  // Arrow
+  ctx.beginPath();
+  ctx.moveTo(af2X + 100, midY);
+  ctx.lineTo(af3X, midY);
+  ctx.strokeStyle = 'rgba(255,68,170,0.5)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Arrow head
+  ctx.beginPath();
+  ctx.moveTo(af3X - 8, midY - 5);
+  ctx.lineTo(af3X, midY);
+  ctx.lineTo(af3X - 8, midY + 5);
+  ctx.strokeStyle = 'rgba(255,68,170,0.5)';
+  ctx.stroke();
+
+  // Label on arrow
+  ctx.font = '10px "Noto Sans KR"';
+  ctx.fillStyle = '#ff44aa';
+  ctx.textAlign = 'center';
+  ctx.fillText('교차 증류 (Cross-Distillation)', (af2X + 100 + af3X) / 2, midY - 15);
+  ctx.font = '9px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillText('낮은 pLDDT → "모른다" 신호 전달', (af2X + 100 + af3X) / 2, midY + 25);
+  ctx.textAlign = 'left';
+
+  // Disordered region indicator
+  const disX = af2X + 30, disY = midY + 45;
+  ctx.font = '9px "Noto Sans KR"';
+  ctx.fillStyle = 'rgba(255,68,100,0.6)';
+  ctx.fillText('무질서 영역 → 환각 방지', disX, disY);
+}
+
+// ===== INIT =====
+window.addEventListener('load', () => {
+  startPipelineParticles();
+});
+</script>
+</body>
+</html>
