@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>반성유전 (Sex-linked Inheritance) — 모건의 초파리 실험</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a1a;
+  --bg2: #0f0f2a;
+  --accent: #2e7d32;
+  --accent2: #1b5e20;
+  --accent-light: #4caf50;
+  --text: #e0e0f0;
+  --text-dim: #8888aa;
+  --glow: 0 0 20px rgba(46,125,50,0.4);
+  --red-eye: #cc3333;
+  --white-eye: #eeeeee;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  overflow-x: hidden;
+  line-height: 1.8;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+.header {
+  text-align: center;
+  padding: 60px 20px 40px;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(46,125,50,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.header h1 {
+  font-size: 2.8em;
+  font-weight: 900;
+  background: linear-gradient(135deg, #2e7d32, #4caf50, #81c784);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 10px;
+}
+.header .subtitle {
+  font-size: 1.1em;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+/* Progress bar */
+.progress-bar {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.progress-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #333;
+  border: 2px solid #555;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.progress-dot.active {
+  background: var(--accent);
+  border-color: var(--accent-light);
+  box-shadow: var(--glow);
+  transform: scale(1.3);
+}
+
+/* Sections */
+.section {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 60px 20px;
+  position: relative;
+}
+
+.section-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  color: var(--accent-light);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.section h2 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #fff;
+}
+.section h2 .en {
+  font-size: 0.5em;
+  color: var(--text-dim);
+  font-weight: 300;
+  display: block;
+  margin-top: 4px;
+}
+
+.explanation {
+  margin: 20px 0 30px;
+  padding: 20px 24px;
+  background: rgba(46,125,50,0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.98em;
+  line-height: 2;
+}
+.explanation li {
+  margin-bottom: 6px;
+  list-style: none;
+  position: relative;
+  padding-left: 18px;
+}
+.explanation li::before {
+  content: '>';
+  position: absolute;
+  left: 0;
+  color: var(--accent-light);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+.explanation strong {
+  color: #fff;
+}
+.explanation .highlight {
+  color: var(--red-eye);
+  font-weight: 700;
+}
+.explanation .highlight-w {
+  color: var(--white-eye);
+  font-weight: 700;
+}
+
+.canvas-wrap {
+  width: 100%;
+  margin: 20px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg2);
+  border: 1px solid rgba(46,125,50,0.2);
+  box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+}
+.canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.divider {
+  max-width: 960px;
+  margin: 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(46,125,50,0.3), transparent);
+}
+
+@media (max-width: 600px) {
+  .header h1 { font-size: 1.8em; }
+  .section h2 { font-size: 1.4em; }
+  .progress-bar { right: 8px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>반성유전 (Sex-linked Inheritance)</h1>
+  <div class="subtitle">모건의 초파리 눈 색깔 실험 — Thomas Hunt Morgan, 1910</div>
+</header>
+
+<nav class="progress-bar">
+  <div class="progress-dot active" onclick="document.getElementById('s-0').scrollIntoView({behavior:'smooth'})"></div>
+  <div class="progress-dot" onclick="document.getElementById('s-1').scrollIntoView({behavior:'smooth'})"></div>
+  <div class="progress-dot" onclick="document.getElementById('s-2').scrollIntoView({behavior:'smooth'})"></div>
+  <div class="progress-dot" onclick="document.getElementById('s-3').scrollIntoView({behavior:'smooth'})"></div>
+</nav>
+
+<!-- Section 1 -->
+<section class="section" id="s-0">
+  <div class="section-number">Section 01</div>
+  <h2>모건의 돌연변이 초파리 발견<span class="en">Morgan's Discovery</span></h2>
+  <div class="explanation">
+    <ul>
+      <li>토마스 헌트 모건(Thomas Hunt Morgan)은 <strong>1910년</strong> 하얀 눈을 가진 돌연변이 초파리(<strong>수컷</strong>)를 발견</li>
+      <li><span class="highlight-w">하얀 눈 수컷</span> &times; <span class="highlight">빨간 눈 암컷</span>(정상) 교배 &rarr; <strong>F1은 모두 빨간 눈</strong></li>
+      <li>빨간 눈이 하얀 눈에 대해 <strong>우성(dominant)</strong></li>
+      <li>여기까지는 멘델의 법칙과 다를 바 없음...</li>
+    </ul>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="canvas1" width="960" height="540"></canvas>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 2 -->
+<section class="section" id="s-1">
+  <div class="section-number">Section 02</div>
+  <h2>F1 교배 &mdash; 예상과 다른 결과<span class="en">F1 Cross Results</span></h2>
+  <div class="explanation">
+    <ul>
+      <li>F1 암컷(빨간 눈) &times; F1 수컷(빨간 눈) 교배</li>
+      <li>멘델 법칙대로라면 빨간:하얀 = <strong>3:1</strong> 예상</li>
+      <li>실제 결과: 전체적으로는 3:1이지만...</li>
+      <li><strong>암컷은 빨간 눈 100%</strong>, <strong>수컷은 빨간 눈 50%, 하얀 눈 50%</strong></li>
+      <li><span class="highlight-w">하얀 눈은 수컷에서만 나타남!</span></li>
+    </ul>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="canvas2" width="960" height="620"></canvas>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 3 -->
+<section class="section" id="s-2">
+  <div class="section-number">Section 03</div>
+  <h2>역교배<span class="en">Reciprocal Cross</span></h2>
+  <div class="explanation">
+    <ul>
+      <li>F1의 빨간 눈 암컷(X<sup>R</sup>X<sup>w</sup>)과 F2의 하얀 눈 수컷(X<sup>w</sup>Y)을 교배하면?</li>
+      <li>이제는 <strong>암컷과 수컷 모두</strong> 빨간 눈 반, 하얀 눈 반이 나옴</li>
+    </ul>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="canvas3" width="960" height="620"></canvas>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Section 4 -->
+<section class="section" id="s-3">
+  <div class="section-number">Section 04</div>
+  <h2>모건의 결론 &mdash; 유전자는 성 염색체(X)에 있다<span class="en">Morgan's Conclusion</span></h2>
+  <div class="explanation">
+    <ul>
+      <li>초파리의 하얀 눈 유전자는 <strong>성 염색체(X)</strong>에 존재</li>
+      <li>암컷 = <strong>XX</strong> (성 염색체 2개) &rarr; 하얀 눈이 되려면 두 개의 X 모두 돌연변이(X<sup>w</sup>X<sup>w</sup>)여야 함</li>
+      <li>수컷 = <strong>XY</strong> (성 염색체 1개) &rarr; X 하나만 돌연변이(X<sup>w</sup>Y)면 하얀 눈</li>
+      <li>결국 성별이 염색체에 의해 결정되며, 눈 색 유전자가 성 염색체에 있음을 발견</li>
+      <li>이것이 <strong>반성유전(Sex-linked inheritance)</strong></li>
+    </ul>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="canvas4" width="960" height="600"></canvas>
+  </div>
+</section>
+
+<div style="height:60px"></div>
+
+<script>
+// ============ SLIDE MODE (for recording) ============
+const SLIDE_MODE = new URLSearchParams(window.location.search).has('slide');
+const SLIDE_BG = '#f0ece4';
+const SLIDE_TEXT = '#1a1a1a';
+const SLIDE_DIM = '#555555';
+
+// ============ SHARED UTILITIES ============
+const RED = '#cc3333';
+const WHITE = '#eeeeee';
+const BODY_COLOR = '#c4956a';
+const BODY_DARK = '#a07850';
+const WING_COLOR = 'rgba(200,210,220,0.25)';
+const WING_STROKE = 'rgba(180,190,200,0.4)';
+const ACCENT = '#2e7d32';
+const ACCENT_LIGHT = SLIDE_MODE ? '#1b5e20' : '#4caf50';
+
+// Canvas background fill helper
+const SLIDE_SCALE = 1.4; // only used for font/fly scale multiplier, NOT canvas resize
+const FS = SLIDE_MODE ? SLIDE_SCALE : 1; // font/fly scale factor
+function fillCanvasBg(ctx, W, H) {
+  if (SLIDE_MODE) {
+    ctx.fillStyle = SLIDE_BG;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+// In slide mode: hide nav, change page bg, make canvases high-DPI
+const SLIDE_DPR = SLIDE_MODE ? (window.devicePixelRatio || 2) : 1;
+if (SLIDE_MODE) {
+  const pb = document.querySelector('.progress-bar');
+  if (pb) pb.style.display = 'none';
+  document.body.style.background = SLIDE_BG;
+  document.querySelectorAll('section, .canvas-wrap, .section-content').forEach(el => {
+    el.style.background = 'transparent';
+  });
+  // Scale canvas pixel buffer for high-DPI
+  document.querySelectorAll('canvas').forEach(c => {
+    const logW = c.width, logH = c.height;
+    c.dataset.logicalW = logW;
+    c.dataset.logicalH = logH;
+    c.style.width = logW + 'px';
+    c.style.height = logH + 'px';
+    c.width = logW * SLIDE_DPR;
+    c.height = logH * SLIDE_DPR;
+  });
+}
+function getCanvasSize(c) {
+  if (SLIDE_MODE && c.dataset.logicalW) {
+    return { W: parseInt(c.dataset.logicalW), H: parseInt(c.dataset.logicalH) };
+  }
+  return { W: c.width, H: c.height };
+}
+// Text color helpers
+function textMain() { return SLIDE_MODE ? SLIDE_TEXT : '#e0e0f0'; }
+function textDim() { return SLIDE_MODE ? SLIDE_DIM : '#aaa'; }
+function textHighlight() { return SLIDE_MODE ? '#1b5e20' : '#4caf50'; }
+
+function drawFly(ctx, x, y, scale, eyeColor, sex) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Wings (behind body, attached at thorax, extending backward and to the sides)
+  ctx.beginPath();
+  ctx.ellipse(-30, 6, 34, 13, -0.3, 0, Math.PI * 2);
+  ctx.fillStyle = WING_COLOR;
+  ctx.fill();
+  ctx.strokeStyle = WING_STROKE;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(30, 6, 34, 13, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Wing veins
+  ctx.beginPath();
+  ctx.moveTo(-10, 4);
+  ctx.lineTo(-48, -2);
+  ctx.moveTo(-10, 8);
+  ctx.lineTo(-46, 12);
+  ctx.moveTo(10, 4);
+  ctx.lineTo(48, -2);
+  ctx.moveTo(10, 8);
+  ctx.lineTo(46, 12);
+  ctx.strokeStyle = 'rgba(180,190,200,0.2)';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+
+  // Body (abdomen)
+  ctx.beginPath();
+  ctx.ellipse(0, 14, 14, 20, 0, 0, Math.PI * 2);
+  ctx.fillStyle = BODY_COLOR;
+  ctx.fill();
+  ctx.strokeStyle = BODY_DARK;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Stripes on body
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-12, 8 + i * 8);
+    ctx.lineTo(12, 8 + i * 8);
+    ctx.strokeStyle = 'rgba(80,50,30,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(0, -8, 12, 0, Math.PI * 2);
+  ctx.fillStyle = BODY_COLOR;
+  ctx.fill();
+  ctx.strokeStyle = BODY_DARK;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Eyes
+  ctx.beginPath();
+  ctx.ellipse(-8, -12, 6, 7, -0.2, 0, Math.PI * 2);
+  ctx.fillStyle = eyeColor;
+  ctx.fill();
+  ctx.strokeStyle = eyeColor === WHITE ? '#bbb' : '#881111';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(8, -12, 6, 7, 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = eyeColor;
+  ctx.fill();
+  ctx.stroke();
+
+  // Antennae
+  ctx.beginPath();
+  ctx.moveTo(-4, -20);
+  ctx.quadraticCurveTo(-10, -38, -14, -40);
+  ctx.moveTo(4, -20);
+  ctx.quadraticCurveTo(10, -38, 14, -40);
+  ctx.strokeStyle = BODY_DARK;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Antenna tips
+  ctx.beginPath();
+  ctx.arc(-14, -40, 2, 0, Math.PI * 2);
+  ctx.arc(14, -40, 2, 0, Math.PI * 2);
+  ctx.fillStyle = BODY_DARK;
+  ctx.fill();
+
+  // Legs (simplified)
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(side * 10, 6 + i * 8);
+      ctx.lineTo(side * 26, 14 + i * 10);
+      ctx.strokeStyle = BODY_DARK;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+
+  // Sex symbol
+  ctx.font = `${16 * scale}px 'Noto Sans KR'`;
+  ctx.fillStyle = sex === 'M' ? '#6699cc' : '#cc6699';
+  ctx.textAlign = 'center';
+  ctx.fillText(sex === 'M' ? '\u2642' : '\u2640', x, y + 50 * scale);
+}
+
+function drawLabel(ctx, text, x, y, fontSize) {
+  ctx.font = `${fontSize || 14}px 'Noto Sans KR'`;
+  ctx.fillStyle = '#aaa';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x, y);
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+// ============ ANIMATION FRAMEWORK ============
+const canvasAnimations = {};
+
+// ============ CANVAS 1: Morgan's Discovery ============
+function initCanvas1() {
+  const c = document.getElementById('canvas1');
+  const ctx = c.getContext('2d');
+  const { W, H } = getCanvasSize(c);
+  let t = 0;
+
+  function draw() {
+    ctx.setTransform(SLIDE_DPR, 0, 0, SLIDE_DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    fillCanvasBg(ctx, W, H);
+    t += 0.005;
+    if (t > 3) t = 0;
+
+    const phase = t; // 0-1: show parents, 1-2: cross, 2-3: show F1
+
+    // Title
+    ctx.font = "bold 18px 'Noto Sans KR'";
+    ctx.fillStyle = ACCENT_LIGHT;
+    ctx.textAlign = 'center';
+    ctx.fillText('P (부모 세대)', W / 2, 30);
+
+    // Parent male (white eyes) on left
+    const maleAlpha = Math.min(1, phase / 0.3);
+    ctx.globalAlpha = maleAlpha;
+    drawFly(ctx, 200, 140, 1.3, WHITE, 'M');
+    ctx.font = "14px 'Noto Sans KR'";
+    ctx.fillStyle = textDim();
+    ctx.textAlign = 'center';
+    ctx.fillText('하얀 눈 (돌연변이)', 200, 225);
+
+    // Parent female (red eyes) on right
+    const femaleAlpha = Math.min(1, Math.max(0, (phase - 0.15) / 0.3));
+    ctx.globalAlpha = femaleAlpha;
+    drawFly(ctx, 760, 140, 1.4, RED, 'F');
+    ctx.fillStyle = textDim();
+    ctx.fillText('빨간 눈 (정상)', 760, 225);
+
+    // Cross symbol
+    if (phase > 0.5) {
+      const crossAlpha = Math.min(1, (phase - 0.5) / 0.3);
+      ctx.globalAlpha = crossAlpha;
+
+      // Heart / cross
+      const pulse = 1 + 0.1 * Math.sin(t * 20);
+      ctx.save();
+      ctx.translate(480, 140);
+      ctx.scale(pulse, pulse);
+      ctx.font = "bold 40px 'Noto Sans KR'";
+      ctx.fillStyle = '#e74c6f';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('\u00d7', 0, 0);
+      ctx.restore();
+    }
+
+    // Arrow down
+    if (phase > 1.0) {
+      const arrAlpha = Math.min(1, (phase - 1.0) / 0.3);
+      ctx.globalAlpha = arrAlpha;
+      ctx.beginPath();
+      ctx.moveTo(480, 240);
+      ctx.lineTo(480, 300);
+      ctx.lineTo(470, 290);
+      ctx.moveTo(480, 300);
+      ctx.lineTo(490, 290);
+      ctx.strokeStyle = ACCENT_LIGHT;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = "bold 16px 'Noto Sans KR'";
+      ctx.fillStyle = ACCENT_LIGHT;
+      ctx.textAlign = 'center';
+      ctx.fillText('F1 (1세대)', 480, 330);
+    }
+
+    // F1 offspring - all red eyes
+    if (phase > 1.3) {
+      const f1Alpha = Math.min(1, (phase - 1.3) / 0.5);
+      ctx.globalAlpha = f1Alpha;
+
+      const positions = [
+        { x: 200, sex: 'F' }, { x: 360, sex: 'M' },
+        { x: 520, sex: 'F' }, { x: 680, sex: 'M' }
+      ];
+      positions.forEach((p, i) => {
+        const delay = i * 0.08;
+        const a = Math.min(1, Math.max(0, (phase - 1.3 - delay) / 0.4));
+        ctx.globalAlpha = a;
+        const bounce = a < 1 ? 1 + 0.2 * (1 - a) : 1;
+        drawFly(ctx, p.x, 420, 1.0 * bounce, RED, p.sex);
+      });
+
+      ctx.globalAlpha = Math.min(1, (phase - 1.8) / 0.3);
+      ctx.font = "14px 'Noto Sans KR'";
+      ctx.fillStyle = textDim();
+      ctx.textAlign = 'center';
+      ctx.fillText('모두 빨간 눈! (빨간 눈 = 우성)', 440, 510);
+    }
+
+    ctx.globalAlpha = 1;
+    canvasAnimations.c1 = requestAnimationFrame(draw);
+  }
+  return draw;
+}
+
+// ============ CANVAS 2: F1 Cross - Punnett Square ============
+function initCanvas2() {
+  const c = document.getElementById('canvas2');
+  const ctx = c.getContext('2d');
+  const { W, H } = getCanvasSize(c);
+  let t = 0;
+
+  function drawAllele(ctx, text, sup, x, y, color, fontSize) {
+    const fs = fontSize || 18;
+    ctx.font = `bold ${fs}px 'JetBrains Mono'`;
+    ctx.fillStyle = color || '#ddd';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+    if (sup) {
+      ctx.font = `bold ${fs * 0.6}px 'JetBrains Mono'`;
+      ctx.fillText(sup, x + fs * 0.55, y - fs * 0.35);
+    }
+  }
+
+  function drawPunnettCell(ctx, cx, cy, w, h, alleles, eyeColor, sex, alpha, glow) {
+    ctx.globalAlpha = alpha;
+    if (glow) {
+      ctx.shadowColor = '#ffcc00';
+      ctx.shadowBlur = 20;
+    }
+    ctx.fillStyle = glow ? 'rgba(255,200,0,0.1)' : 'rgba(46,125,50,0.08)';
+    ctx.fillRect(cx - w/2, cy - h/2, w, h);
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = 'rgba(46,125,50,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - w/2, cy - h/2, w, h);
+
+    // Alleles text
+    ctx.font = "bold 15px 'JetBrains Mono'";
+    ctx.fillStyle = textMain();
+    ctx.textAlign = 'center';
+    ctx.fillText(alleles, cx, cy - 22);
+
+    // Small fly
+    drawFly(ctx, cx, cy + 14, 0.45, eyeColor, sex);
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    ctx.setTransform(SLIDE_DPR, 0, 0, SLIDE_DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    fillCanvasBg(ctx, W, H);
+    t += 0.004;
+    if (t > 4) t = 0;
+
+    const phase = t;
+
+    // Title
+    ctx.font = "bold 16px 'Noto Sans KR'";
+    ctx.fillStyle = ACCENT_LIGHT;
+    ctx.textAlign = 'center';
+    ctx.fillText('F1 \u00d7 F1 교배 \u2014 퍼넷 사각형 (Punnett Square)', W / 2, 28);
+
+    // Parents info
+    ctx.globalAlpha = Math.min(1, phase / 0.5);
+    ctx.font = "14px 'Noto Sans KR'";
+    ctx.fillStyle = '#cc6699';
+    ctx.textAlign = 'right';
+    ctx.fillText('\u2640 어머니: X\u1D3F X\u02B7 (보인자, 빨간 눈)', W / 2 - 20, 58);
+    ctx.fillStyle = '#6699cc';
+    ctx.textAlign = 'left';
+    ctx.fillText('\u2642 아버지: X\u1D3F Y (빨간 눈)', W / 2 + 20, 58);
+
+    // Punnett square
+    const sqX = W / 2, sqY = 270;
+    const cellW = 150, cellH = 120;
+    const totalW = cellW * 2 + 60, totalH = cellH * 2 + 60;
+    const startX = sqX - cellW - 30, startY = sqY - cellH - 30;
+
+    ctx.globalAlpha = Math.min(1, (phase - 0.3) / 0.3);
+
+    // Header row (father)
+    ctx.font = "bold 14px 'Noto Sans KR'";
+    ctx.fillStyle = '#6699cc';
+    ctx.textAlign = 'center';
+    ctx.fillText('\u2642 \uC544\uBC84\uC9C0', sqX, startY - 15);
+
+    ctx.font = "bold 16px 'JetBrains Mono'";
+    ctx.fillStyle = textMain();
+    ctx.fillText('X\u1D3F', startX + 30 + cellW / 2, startY + 25);
+    ctx.fillText('Y', startX + 30 + cellW + cellW / 2, startY + 25);
+
+    // Header col (mother)
+    ctx.save();
+    ctx.translate(startX - 15, sqY);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = "bold 14px 'Noto Sans KR'";
+    ctx.fillStyle = '#cc6699';
+    ctx.fillText('\u2640 \uC5B4\uBA38\uB2C8', 0, 0);
+    ctx.restore();
+
+    ctx.font = "bold 16px 'JetBrains Mono'";
+    ctx.fillStyle = textMain();
+    ctx.textAlign = 'center';
+    ctx.fillText('X\u1D3F', startX + 12, startY + 60 + cellH / 2);
+    ctx.fillText('X\u02B7', startX + 12, startY + 60 + cellH + cellH / 2);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(46,125,50,0.4)';
+    ctx.lineWidth = 1.5;
+    const gx = startX + 30, gy = startY + 42;
+    ctx.strokeRect(gx, gy, cellW * 2, cellH * 2);
+    ctx.beginPath();
+    ctx.moveTo(gx + cellW, gy);
+    ctx.lineTo(gx + cellW, gy + cellH * 2);
+    ctx.moveTo(gx, gy + cellH);
+    ctx.lineTo(gx + cellW * 2, gy + cellH);
+    ctx.stroke();
+
+    // Cells data
+    const cells = [
+      { r: 0, c: 0, alleles: 'X\u1D3FX\u1D3F', eye: RED, sex: 'F', label: '\uBE68\uAC04 \u2640' },
+      { r: 0, c: 1, alleles: 'X\u1D3FY', eye: RED, sex: 'M', label: '\uBE68\uAC04 \u2642' },
+      { r: 1, c: 0, alleles: 'X\u1D3FX\u02B7', eye: RED, sex: 'F', label: '\uBE68\uAC04 \u2640 (\uBCF4\uC778\uC790)' },
+      { r: 1, c: 1, alleles: 'X\u02B7Y', eye: WHITE, sex: 'M', label: '\uD558\uC580 \u2642 !' }
+    ];
+
+    cells.forEach((cell, i) => {
+      const delay = 0.8 + i * 0.4;
+      const alpha = Math.min(1, Math.max(0, (phase - delay) / 0.4));
+      const cx = gx + cell.c * cellW + cellW / 2;
+      const cy = gy + cell.r * cellH + cellH / 2;
+      const isWhite = cell.eye === WHITE;
+      const glowPhase = phase > 2.5 && isWhite;
+      drawPunnettCell(ctx, cx, cy, cellW - 4, cellH - 4, cell.alleles, cell.eye, cell.sex, alpha, glowPhase);
+    });
+
+    // Result summary
+    if (phase > 2.8) {
+      const sumAlpha = Math.min(1, (phase - 2.8) / 0.4);
+      ctx.globalAlpha = sumAlpha;
+
+      const resY = gy + cellH * 2 + 40;
+      ctx.font = "bold 15px 'Noto Sans KR'";
+      ctx.fillStyle = '#cc6699';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2640 \uC554\uCEF7: \uBAA8\uB450 \uBE68\uAC04 \uB208 (100%)', W / 2, resY);
+      ctx.fillStyle = '#6699cc';
+      ctx.fillText('\u2642 \uC218\uCEF7: \uBE68\uAC04 50% / \uD558\uC580 50%', W / 2, resY + 28);
+
+      // Highlight box
+      if (phase > 3.2) {
+        const hlAlpha = 0.5 + 0.5 * Math.sin(phase * 8);
+        ctx.globalAlpha = hlAlpha * sumAlpha;
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(W / 2 - 180, resY + 38, 360, 34);
+        ctx.globalAlpha = sumAlpha;
+        ctx.font = "bold 16px 'Noto Sans KR'";
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillText('\u21D2 \uD558\uC580 \uB208\uC740 \uC218\uCEF7\uC5D0\uC11C\uB9CC \uB098\uD0C0\uB0A8!', W / 2, resY + 60);
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    canvasAnimations.c2 = requestAnimationFrame(draw);
+  }
+  return draw;
+}
+
+// ============ CANVAS 3: Reciprocal Cross ============
+function initCanvas3() {
+  const c = document.getElementById('canvas3');
+  const ctx = c.getContext('2d');
+  const { W, H } = getCanvasSize(c);
+  let t = 0;
+
+  function draw() {
+    ctx.setTransform(SLIDE_DPR, 0, 0, SLIDE_DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    fillCanvasBg(ctx, W, H);
+    t += 0.004;
+    if (t > 4) t = 0;
+    const phase = t;
+
+    ctx.font = "bold 16px 'Noto Sans KR'";
+    ctx.fillStyle = ACCENT_LIGHT;
+    ctx.textAlign = 'center';
+    ctx.fillText('\uC5ED\uAD50\uBC30: F1 \uC554\uCEF7(\uBE68\uAC04) \u00d7 F2 \uC218\uCEF7(\uD558\uC580)', W / 2, 28);
+
+    ctx.globalAlpha = Math.min(1, phase / 0.5);
+    ctx.font = "14px 'Noto Sans KR'";
+    ctx.fillStyle = '#cc6699';
+    ctx.textAlign = 'right';
+    ctx.fillText('\u2640 \uC5B4\uBA38\uB2C8: X\u1D3F X\u02B7 (\uBE68\uAC04 \uB208, \uBCF4\uC778\uC790)', W / 2 - 20, 58);
+    ctx.fillStyle = '#6699cc';
+    ctx.textAlign = 'left';
+    ctx.fillText('\u2642 \uC544\uBC84\uC9C0: X\u02B7 Y (\uD558\uC580 \uB208)', W / 2 + 20, 58);
+
+    // Punnett square
+    const cellW = 150, cellH = 120;
+    const gx = W / 2 - cellW, gy = 115;
+
+    ctx.globalAlpha = Math.min(1, (phase - 0.3) / 0.3);
+
+    // Headers
+    ctx.font = "bold 14px 'Noto Sans KR'";
+    ctx.fillStyle = '#6699cc';
+    ctx.textAlign = 'center';
+    ctx.fillText('\u2642 \uC544\uBC84\uC9C0', W / 2, gy - 28);
+
+    ctx.font = "bold 16px 'JetBrains Mono'";
+    ctx.fillStyle = textMain();
+    ctx.fillText('X\u02B7', gx + cellW / 2, gy - 8);
+    ctx.fillText('Y', gx + cellW + cellW / 2, gy - 8);
+
+    ctx.save();
+    ctx.translate(gx - 28, gy + cellH);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = "bold 14px 'Noto Sans KR'";
+    ctx.fillStyle = '#cc6699';
+    ctx.fillText('\u2640 \uC5B4\uBA38\uB2C8', 0, 0);
+    ctx.restore();
+
+    ctx.font = "bold 16px 'JetBrains Mono'";
+    ctx.fillStyle = textMain();
+    ctx.textAlign = 'center';
+    ctx.fillText('X\u1D3F', gx - 12, gy + cellH / 2);
+    ctx.fillText('X\u02B7', gx - 12, gy + cellH + cellH / 2);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(46,125,50,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(gx, gy, cellW * 2, cellH * 2);
+    ctx.beginPath();
+    ctx.moveTo(gx + cellW, gy);
+    ctx.lineTo(gx + cellW, gy + cellH * 2);
+    ctx.moveTo(gx, gy + cellH);
+    ctx.lineTo(gx + cellW * 2, gy + cellH);
+    ctx.stroke();
+
+    // Cells
+    const cells = [
+      { r: 0, c: 0, alleles: 'X\u1D3FX\u02B7', eye: RED, sex: 'F' },
+      { r: 0, c: 1, alleles: 'X\u1D3FY', eye: RED, sex: 'M' },
+      { r: 1, c: 0, alleles: 'X\u02B7X\u02B7', eye: WHITE, sex: 'F' },
+      { r: 1, c: 1, alleles: 'X\u02B7Y', eye: WHITE, sex: 'M' }
+    ];
+
+    cells.forEach((cell, i) => {
+      const delay = 0.8 + i * 0.4;
+      const alpha = Math.min(1, Math.max(0, (phase - delay) / 0.4));
+      const cx = gx + cell.c * cellW + cellW / 2;
+      const cy = gy + cell.r * cellH + cellH / 2;
+      const isWhiteF = cell.eye === WHITE && cell.sex === 'F';
+
+      ctx.globalAlpha = alpha;
+      if (isWhiteF && phase > 2.5) {
+        ctx.shadowColor = '#ffcc00';
+        ctx.shadowBlur = 20;
+      }
+      ctx.fillStyle = isWhiteF && phase > 2.5 ? 'rgba(255,200,0,0.1)' : 'rgba(46,125,50,0.08)';
+      ctx.fillRect(cx - cellW / 2 + 2, cy - cellH / 2 + 2, cellW - 4, cellH - 4);
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = 'rgba(46,125,50,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx - cellW / 2 + 2, cy - cellH / 2 + 2, cellW - 4, cellH - 4);
+
+      ctx.font = "bold 15px 'JetBrains Mono'";
+      ctx.fillStyle = textMain();
+      ctx.textAlign = 'center';
+      ctx.fillText(cell.alleles, cx, cy - 22);
+      drawFly(ctx, cx, cy + 14, 0.45, cell.eye, cell.sex);
+    });
+
+    // Results
+    if (phase > 2.8) {
+      const a = Math.min(1, (phase - 2.8) / 0.4);
+      ctx.globalAlpha = a;
+
+      const resY = gy + cellH * 2 + 35;
+      ctx.font = "bold 15px 'Noto Sans KR'";
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#cc6699';
+      ctx.fillText('\u2640 \uC554\uCEF7: \uBE68\uAC04 50% / \uD558\uC580 50%', W / 2, resY);
+      ctx.fillStyle = '#6699cc';
+      ctx.fillText('\u2642 \uC218\uCEF7: \uBE68\uAC04 50% / \uD558\uC580 50%', W / 2, resY + 28);
+
+      if (phase > 3.2) {
+        const hlA = 0.5 + 0.5 * Math.sin(phase * 8);
+        ctx.globalAlpha = hlA * a;
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(W / 2 - 200, resY + 38, 400, 34);
+        ctx.globalAlpha = a;
+        ctx.font = "bold 16px 'Noto Sans KR'";
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillText('\u21D2 \uC774\uBC88\uC5D0\uB294 \uC554\uCEF7\uC5D0\uC11C\uB3C4 \uD558\uC580 \uB208\uC774 \uB098\uD0C0\uB0A8!', W / 2, resY + 60);
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    canvasAnimations.c3 = requestAnimationFrame(draw);
+  }
+  return draw;
+}
+
+// ============ CANVAS 4: Morgan's Conclusion ============
+function initCanvas4() {
+  const c = document.getElementById('canvas4');
+  const ctx = c.getContext('2d');
+  const { W, H } = getCanvasSize(c);
+  let t = 0;
+
+  function drawChromosome(ctx, x, y, w, h, color, label, hasGene, geneY, geneLabel, glowTime) {
+    // Chromosome shape: rounded rectangle
+    const r = w / 2;
+    ctx.beginPath();
+    ctx.moveTo(x - w/2 + r, y - h/2);
+    ctx.lineTo(x + w/2 - r, y - h/2);
+    ctx.arc(x + w/2 - r, y - h/2 + r, r, -Math.PI/2, 0);
+    ctx.lineTo(x + w/2, y + h/2 - r);
+    ctx.arc(x + w/2 - r, y + h/2 - r, r, 0, Math.PI/2);
+    ctx.lineTo(x - w/2 + r, y + h/2);
+    ctx.arc(x - w/2 + r, y + h/2 - r, r, Math.PI/2, Math.PI);
+    ctx.lineTo(x - w/2, y - h/2 + r);
+    ctx.arc(x - w/2 + r, y - h/2 + r, r, Math.PI, Math.PI * 1.5);
+    ctx.closePath();
+
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Centromere band
+    ctx.beginPath();
+    ctx.moveTo(x - w/2 - 2, y);
+    ctx.lineTo(x + w/2 + 2, y);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Label
+    ctx.font = "bold 22px 'JetBrains Mono'";
+    ctx.fillStyle = textMain();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y + h/2 + 22);
+
+    // Gene locus
+    if (hasGene && geneY !== undefined) {
+      const gy = y - h/2 + geneY;
+      const pulse = 1 + 0.3 * Math.sin(glowTime * 6);
+
+      ctx.shadowColor = '#ffcc00';
+      ctx.shadowBlur = 12 * pulse;
+      ctx.beginPath();
+      ctx.arc(x, gy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Arrow and label
+      ctx.beginPath();
+      ctx.moveTo(x + w/2 + 5, gy);
+      ctx.lineTo(x + w/2 + 35, gy);
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = "12px 'Noto Sans KR'";
+      ctx.fillStyle = '#ffcc00';
+      ctx.textAlign = 'left';
+      ctx.fillText(geneLabel, x + w/2 + 38, gy + 4);
+    }
+
+    if (!hasGene && geneY !== undefined) {
+      // Show empty locus on Y
+      const gy2 = y - h/2 + geneY;
+      ctx.beginPath();
+      ctx.moveTo(x + w/2 + 5, gy2);
+      ctx.lineTo(x + w/2 + 35, gy2);
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "12px 'Noto Sans KR'";
+      ctx.fillStyle = '#666';
+      ctx.textAlign = 'left';
+      ctx.fillText('\uD574\uB2F9 \uC720\uC804\uC790 \uC5C6\uC74C', x + w/2 + 38, gy2 + 4);
+    }
+  }
+
+  function draw() {
+    ctx.setTransform(SLIDE_DPR, 0, 0, SLIDE_DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    fillCanvasBg(ctx, W, H);
+    t += 0.005;
+    if (t > 5) t = 0;
+    const phase = t;
+
+    // Title
+    ctx.font = "bold 16px 'Noto Sans KR'";
+    ctx.fillStyle = ACCENT_LIGHT;
+    ctx.textAlign = 'center';
+    ctx.fillText('\uC131 \uC5FC\uC0C9\uCCB4\uC640 \uB208 \uC0C9 \uC720\uC804\uC790\uC758 \uC704\uCE58', W / 2, 28);
+
+    // === Left side: X and Y chromosomes ===
+    const chromAlpha = Math.min(1, phase / 0.8);
+    ctx.globalAlpha = chromAlpha;
+
+    // X chromosome (larger)
+    drawChromosome(ctx, 180, 180, 30, 160, 'rgba(204,102,153,0.5)', 'X', true, 50, '\uB208 \uC0C9 \uC720\uC804\uC790', t);
+
+    // Y chromosome (smaller)
+    drawChromosome(ctx, 320, 200, 22, 100, 'rgba(102,153,204,0.5)', 'Y', false, 30, '', t);
+
+    // Annotation
+    if (phase > 1) {
+      const a = Math.min(1, (phase - 1) / 0.5);
+      ctx.globalAlpha = a;
+      ctx.font = "13px 'Noto Sans KR'";
+      ctx.fillStyle = textDim();
+      ctx.textAlign = 'center';
+      ctx.fillText('X \uC5FC\uC0C9\uCCB4\uB294 Y\uBCF4\uB2E4 \uD06C\uACE0', 250, 310);
+      ctx.fillText('\uB354 \uB9CE\uC740 \uC720\uC804\uC790\uB97C \uBCF4\uC720', 250, 330);
+    }
+
+    // === Right side: Female vs Male comparison ===
+    if (phase > 1.5) {
+      const a2 = Math.min(1, (phase - 1.5) / 0.6);
+      ctx.globalAlpha = a2;
+
+      // Female XX section
+      ctx.font = "bold 15px 'Noto Sans KR'";
+      ctx.fillStyle = '#cc6699';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2640 \uC554\uCEF7 (XX)', 600, 80);
+
+      // Two X chromosomes for female
+      drawChromosome(ctx, 560, 180, 22, 110, 'rgba(204,102,153,0.4)', '', true, 35, '', t);
+      drawChromosome(ctx, 640, 180, 22, 110, 'rgba(204,102,153,0.4)', '', true, 35, '', t);
+
+      ctx.font = "13px 'JetBrains Mono'";
+      ctx.fillStyle = textMain();
+      ctx.textAlign = 'center';
+      ctx.fillText('X', 560, 250);
+      ctx.fillText('X', 640, 250);
+    }
+
+    if (phase > 2.0) {
+      const a3 = Math.min(1, (phase - 2.0) / 0.6);
+      ctx.globalAlpha = a3;
+
+      // Male XY section
+      ctx.font = "bold 15px 'Noto Sans KR'";
+      ctx.fillStyle = '#6699cc';
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2642 \uC218\uCEF7 (XY)', 830, 80);
+
+      drawChromosome(ctx, 800, 180, 22, 110, 'rgba(204,102,153,0.4)', '', true, 35, '', t);
+      drawChromosome(ctx, 870, 200, 16, 70, 'rgba(102,153,204,0.4)', '', false, undefined, '', t);
+
+      ctx.font = "13px 'JetBrains Mono'";
+      ctx.fillStyle = textMain();
+      ctx.textAlign = 'center';
+      ctx.fillText('X', 800, 250);
+      ctx.fillText('Y', 870, 250);
+    }
+
+    // Bottom explanation with flies
+    if (phase > 2.8) {
+      const a4 = Math.min(1, (phase - 2.8) / 0.6);
+      ctx.globalAlpha = a4;
+
+      // Female explanation
+      ctx.font = "bold 14px 'Noto Sans KR'";
+      ctx.fillStyle = '#cc6699';
+      ctx.textAlign = 'center';
+      ctx.fillText('\uC554\uCEF7\uC774 \uD558\uC580 \uB208\uC774 \uB418\uB824\uBA74:', 280, 380);
+
+      // Two Xw needed
+      ctx.font = "bold 15px 'JetBrains Mono'";
+      ctx.fillStyle = SLIDE_MODE ? '#cc8800' : '#ff9';
+      ctx.fillText('X\u02B7 X\u02B7  \u2190 \uB458 \uB2E4 \uD544\uC694!', 280, 405);
+
+      drawFly(ctx, 200, 470, 0.7, WHITE, 'F');
+      ctx.font = "12px 'Noto Sans KR'";
+      ctx.fillStyle = textDim();
+      ctx.fillText('\uC5B4\uB835\uB2E4 (\uD655\uB960 \uB0AE\uC74C)', 280, 520);
+
+      // Cross mark for difficulty
+      ctx.font = "30px 'Noto Sans KR'";
+      ctx.fillStyle = 'rgba(255,100,100,0.6)';
+      ctx.fillText('\u2717', 350, 475);
+    }
+
+    if (phase > 3.3) {
+      const a5 = Math.min(1, (phase - 3.3) / 0.6);
+      ctx.globalAlpha = a5;
+
+      // Male explanation
+      ctx.font = "bold 14px 'Noto Sans KR'";
+      ctx.fillStyle = '#6699cc';
+      ctx.textAlign = 'center';
+      ctx.fillText('\uC218\uCEF7\uC774 \uD558\uC580 \uB208\uC774 \uB418\uB824\uBA74:', 700, 380);
+
+      ctx.font = "bold 15px 'JetBrains Mono'";
+      ctx.fillStyle = SLIDE_MODE ? '#cc8800' : '#ff9';
+      ctx.fillText('X\u02B7 Y  \u2190 \uD558\uB098\uBA74 \uCDA9\uBD84!', 700, 405);
+
+      drawFly(ctx, 620, 470, 0.65, WHITE, 'M');
+      ctx.font = "12px 'Noto Sans KR'";
+      ctx.fillStyle = textDim();
+      ctx.fillText('\uC27D\uB2E4 (\uD655\uB960 \uB192\uC74C)', 700, 520);
+
+      // Check mark for easy
+      ctx.font = "30px 'Noto Sans KR'";
+      ctx.fillStyle = 'rgba(100,255,100,0.6)';
+      ctx.fillText('\u2713', 770, 475);
+    }
+
+    // Final conclusion
+    if (phase > 4.0) {
+      const a6 = Math.min(1, (phase - 4.0) / 0.5);
+      ctx.globalAlpha = a6;
+
+      const pulse = 0.7 + 0.3 * Math.sin(t * 5);
+      ctx.fillStyle = `rgba(46,125,50,${0.15 * pulse})`;
+      ctx.fillRect(W / 2 - 280, 550, 560, 36);
+      ctx.strokeStyle = `rgba(46,125,50,${0.5 * pulse})`;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(W / 2 - 280, 550, 560, 36);
+
+      ctx.font = "bold 16px 'Noto Sans KR'";
+      ctx.fillStyle = ACCENT_LIGHT;
+      ctx.textAlign = 'center';
+      ctx.fillText('\u21D2 \uBC18\uC131\uC720\uC804: \uC5F4\uC131 \uD615\uC9C8\uC774 \uC218\uCEF7\uC5D0\uC11C \uB354 \uC790\uC8FC \uB098\uD0C0\uB09C\uB2E4!', W / 2, 573);
+    }
+
+    ctx.globalAlpha = 1;
+    canvasAnimations.c4 = requestAnimationFrame(draw);
+  }
+  return draw;
+}
+
+// ============ IntersectionObserver for auto-play ============
+const canvasInits = [
+  { id: 'canvas1', init: initCanvas1, key: 'c1' },
+  { id: 'canvas2', init: initCanvas2, key: 'c2' },
+  { id: 'canvas3', init: initCanvas3, key: 'c3' },
+  { id: 'canvas4', init: initCanvas4, key: 'c4' }
+];
+
+const canvasStarted = {};
+
+const canvasObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    const id = entry.target.id;
+    const ci = canvasInits.find(c => c.id === id);
+    if (!ci) return;
+
+    if (entry.isIntersecting && !canvasStarted[id]) {
+      canvasStarted[id] = true;
+      ci.init()();
+    } else if (!entry.isIntersecting && canvasStarted[id]) {
+      if (canvasAnimations[ci.key]) {
+        cancelAnimationFrame(canvasAnimations[ci.key]);
+        canvasAnimations[ci.key] = null;
+      }
+      canvasStarted[id] = false;
+    }
+  });
+}, { threshold: 0.2 });
+
+canvasInits.forEach(ci => {
+  const el = document.getElementById(ci.id);
+  if (el) canvasObserver.observe(el);
+});
+
+// Progress indicator
+const sections = document.querySelectorAll('.section');
+const dots = document.querySelectorAll('.progress-dot');
+
+const progressObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const idx = parseInt(entry.target.id.split('-')[1]);
+      dots.forEach(d => d.classList.remove('active'));
+      if (dots[idx]) dots[idx].classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+
+sections.forEach(s => progressObserver.observe(s));
+</script>
+</body>
+</html>
