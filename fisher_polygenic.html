@@ -185,7 +185,7 @@ canvas {
 <div class="container">
   <div class="controls">
     <label>유전자 수 (Number of Genes):</label>
-    <input type="range" id="geneSlider" min="2" max="20" value="3" step="1">
+    <input type="range" id="geneSlider" min="1" max="20" value="1" step="1">
     <span class="gene-val" id="geneVal">3</span>
     <button id="autoBtn">▶ 자동 재생 (Auto)</button>
   </div>
@@ -300,8 +300,8 @@ function skinColor(fraction) {
 // ============================================================
 // State
 // ============================================================
-let currentN = 3;
-let targetN = 3;
+let currentN = 1;
+let targetN = 1;
 let animBars = []; // current animated bar heights
 let fromBars = []; // starting bar heights for animation
 let targetBars = [];
@@ -366,10 +366,10 @@ function toggleAuto() {
   autoBtn.textContent = autoMode ? '⏸ 정지 (Stop)' : '▶ 자동 재생 (Auto)';
   if (autoMode) {
     autoTimer = 0;
-    currentN = 2;
-    slider.value = 2;
-    geneValEl.textContent = 2;
-    initBars(2);
+    currentN = 1;
+    slider.value = 1;
+    geneValEl.textContent = 1;
+    initBars(1);
   }
 }
 
@@ -695,7 +695,9 @@ function draw() {
   ctx.textAlign = 'center';
 
   let insight1 = '';
-  if (n <= 3) {
+  if (n === 1) {
+    insight1 = `유전자 1개 → 3가지 표현형 (멘델의 1:2:1 비율 그대로!)`;
+  } else if (n <= 3) {
     insight1 = `유전자 ${n}개 → ${numBars}가지 표현형 (뚜렷한 계단형 분포)`;
   } else if (n <= 6) {
     insight1 = `유전자 ${n}개 → ${numBars}가지 표현형 (종 모양에 가까워짐)`;
@@ -722,7 +724,11 @@ function draw() {
   ctx.fillText(`P(k) = C(${total}, k) / 2^${total}    |    평균(mean) = ${n}    |    표준편차(std) = √(n/2) ≈ ${Math.sqrt(n / 2).toFixed(2)}`, W / 2, insightY + 90);
 
   // Insight messages for specific n values
-  if (n === 2) {
+  if (n === 1) {
+    ctx.fillStyle = subColor();
+    ctx.font = "12px 'Noto Sans KR'";
+    ctx.fillText('n=1: DD, Dd, dd — 멘델이 발견한 단일 유전자 유전. 양적 형질의 출발점', W / 2, insightY + 118);
+  } else if (n === 2) {
     ctx.fillStyle = subColor();
     ctx.font = "12px 'Noto Sans KR'";
     ctx.fillText('n=2: 피부색이 5단계로만 나뉨 — 불연속적 형질처럼 보임', W / 2, insightY + 118);
