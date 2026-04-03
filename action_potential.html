@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이온 채널과 활동전위</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR',sans-serif;background:#060b18;color:#e2e8f0;overflow-x:hidden}
+header{text-align:center;padding:16px 12px 2px}
+header h1{font-size:1.35rem;font-weight:900;background:linear-gradient(90deg,#34d399,#06b6d4,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header p{color:#64748b;font-size:.72rem;margin-top:2px;font-weight:300}
+.ly{display:flex;flex-direction:column;gap:8px;max-width:1340px;margin:8px auto;padding:0 8px}
+@media(min-width:960px){.tr{display:flex;gap:8px}.tr>div{flex:1}}
+.pn{background:#0d1424;border-radius:11px;border:1px solid rgba(255,255,255,.05);overflow:hidden}
+.pt{padding:8px 12px 5px;font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:1.3px;color:#64748b;display:flex;align-items:center;gap:5px}
+.pt .d{width:6px;height:6px;border-radius:50%}
+canvas{width:100%;display:block}
+#mC{height:440px}#gC{height:440px}
+.leg{display:flex;gap:9px;padding:5px 12px;flex-wrap:wrap;justify-content:center;border-top:1px solid rgba(255,255,255,.04)}
+.leg span{display:flex;align-items:center;gap:3px;font-size:.62rem;color:#64748b}
+.leg .ld{width:7px;height:7px;border-radius:2px}
+.ct{display:flex;align-items:center;gap:6px;padding:8px 12px;flex-wrap:wrap;justify-content:center}
+.pb{padding:7px 18px;border:none;border-radius:6px;background:linear-gradient(135deg,#34d399,#06b6d4);color:#fff;font-family:inherit;font-size:.76rem;font-weight:700;cursor:pointer;transition:.2s}
+.pb:hover{transform:scale(1.03)}
+.sb{padding:3px 8px;border:1px solid rgba(255,255,255,.1);border-radius:5px;background:0;color:#64748b;font-family:'JetBrains Mono';font-size:.66rem;cursor:pointer;transition:.2s}
+.sb.a{border-color:#06b6d4;color:#fff;background:rgba(6,182,212,.15)}
+.tl{flex:1;min-width:130px;display:flex;align-items:center;gap:5px}
+.tl input[type=range]{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,.1);outline:0;cursor:pointer}
+.tl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#06b6d4}
+.tlb{font-family:'JetBrains Mono';font-size:.66rem;color:#64748b;min-width:30px}
+.is{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;padding:9px 11px}
+.ic{background:rgba(255,255,255,.02);border-radius:8px;padding:8px 10px;border:1px solid rgba(255,255,255,.04)}
+.ic h4{font-size:.7rem;font-weight:700;margin-bottom:2px}.ic p{font-size:.68rem;color:#64748b;line-height:1.5;font-weight:300}
+.ic strong{color:#e2e8f0;font-weight:600}
+.mv{font-family:'JetBrains Mono';font-size:1.5rem;font-weight:700;text-align:center;padding:0 0 1px}
+.pl{text-align:center;padding:1px;font-size:.72rem;font-weight:700}
+.cb{display:flex;gap:9px;padding:4px 12px;justify-content:center;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.04)}
+.ci{font-size:.64rem;color:#64748b;font-family:'JetBrains Mono'}.ci b{font-weight:600}
+</style>
+</head>
+<body>
+<header>
+<h1>이온 채널과 활동전위</h1>
+<p>Individual Ion Tracking with Diffusion — 개별 이온 추적 + 확산 시뮬레이션</p>
+</header>
+<div class="ly">
+<div class="pn">
+<div class="ct">
+  <button class="pb" id="pB" onclick="tog()">▶ 재생</button>
+  <button class="sb" onclick="rst()">↺</button>
+  <span style="color:#64748b;font-size:.66rem">속도</span>
+  <button class="sb" onclick="ss(.2)" data-s=".2">0.2×</button>
+  <button class="sb a" onclick="ss(1)" data-s="1">1×</button>
+  <button class="sb" onclick="ss(2)" data-s="2">2×</button>
+  <button class="sb" onclick="ss(4)" data-s="4">4×</button>
+  <div class="tl"><input type="range" id="sl" min="0" max="10000" value="0" oninput="scr(this.value)"><span class="tlb" id="tL">0ms</span></div>
+</div>
+</div>
+<div class="tr">
+<div class="pn">
+  <div class="pt"><span class="d" style="background:#34d399"></span>세포막 단면도</div>
+  <canvas id="mC"></canvas>
+  <div class="cb" id="cB"></div>
+  <div class="leg">
+    <span><div class="ld" style="background:#34d399"></div>V-gated Na⁺</span>
+    <span><div class="ld" style="background:#60a5fa"></div>V-gated K⁺</span>
+    <span><div class="ld" style="background:#fbbf24"></div>K⁺ Leak</span>
+    <span><div class="ld" style="background:#a78bfa"></div>Na⁺/K⁺ ATPase</span>
+    <span><div class="ld" style="background:#f0abfc;border-radius:50%"></div>Na⁺ (1.02Å)</span>
+    <span><div class="ld" style="background:#7dd3fc;border-radius:50%;width:9px;height:9px"></div>K⁺ (1.38Å)</span>
+  </div>
+</div>
+<div class="pn">
+  <div class="pt"><span class="d" style="background:#34d399"></span>막전위 그래프</div>
+  <canvas id="gC"></canvas>
+  <div class="mv" id="mD" style="color:#06b6d4">-70 mV</div>
+  <div class="pl" id="pL" style="color:#64748b">휴지기</div>
+</div>
+</div>
+<div class="pn">
+<div class="is">
+  <div class="ic"><h4>🔋 채널 상태</h4><p id="sT"></p></div>
+  <div class="ic"><h4>⚡ 이온 이동</h4><p id="iT"></p></div>
+  <div class="ic"><h4>📝 핵심</h4><p id="dT"></p></div>
+  <div class="ic"><h4>🔢 이온 수</h4><p id="pT"></p></div>
+</div>
+</div>
+</div>
+<script>
+// ═══ SIZE: Na+ 1.02Å, K+ 1.38Å → ratio 1.35 ═══
+const NA_R=3.8, K_R=5.1;
+
+// ═══ INITIAL COUNTS (concentration-proportional) ═══
+// Na+: out 145mM / in 12mM → 36:3
+// K+:  in 155mM  / out 4mM → 39:2
+const I_NAO=36,I_NAI=3,I_KI=39,I_KO=2;
+const T_NA=I_NAO+I_NAI, T_K=I_KI+I_KO;
+const NA_XFER=14, K_XFER=14;
+
+// ═══ TIMELINE ═══
+let TT=0, playing=false, spd=1, lastF=0;
+const DUR=12000;
+
+// ═══ AP CURVE ═══
+function ap(t){
+  if(t<.08)return-70;if(t<.13)return-70+((t-.08)/.05)*15;if(t<.17)return-55+((t-.13)/.04)*55;
+  if(t<.27)return((t-.17)/.10)*30;if(t<.30)return 30-((t-.27)/.03)*5;if(t<.55)return 25-((t-.30)/.25)*105;
+  if(t<.65)return-80-((t-.55)/.10)*2;if(t<.85)return-82+((t-.65)/.20)*12;return-70;
+}
+function gNa(t){if(t<.12)return 0;if(t<.17)return(t-.12)/.05;if(t<.28)return 1;if(t<.35)return 1-(t-.28)/.07;return 0}
+function gK(t){if(t<.18)return 0;if(t<.28)return(t-.18)/.10;if(t<.55)return 1;if(t<.68)return 1-(t-.55)/.13;return 0}
+function pRate(t){if(t<.55)return 0;if(t<.65)return(t-.55)/.10;if(t<.90)return 1;if(t<1)return 1-(t-.90)/.10;return 0}
+function tNaIn(t){
+  if(t<.12)return I_NAI;
+  if(t<.35)return Math.round(I_NAI+gNa(t)*NA_XFER);
+  if(t<.55)return I_NAI+NA_XFER;
+  if(t<.95)return Math.round(I_NAI+NA_XFER-Math.min(1,(t-.55)/.35)*NA_XFER);
+  return I_NAI;
+}
+function tKOut(t){
+  if(t<.18)return I_KO;
+  if(t<.55)return Math.round(I_KO+gK(t)*K_XFER);
+  if(t<.58)return I_KO+K_XFER;
+  if(t<.95)return Math.round(I_KO+K_XFER-Math.min(1,(t-.58)/.35)*K_XFER);
+  return I_KO;
+}
+function phI(t){
+  if(t<.08)return{n:'휴지기 (Resting)',c:'#94a3b8',i:0};
+  if(t<.13)return{n:'역치 도달 (Threshold)',c:'#fbbf24',i:1};
+  if(t<.32)return{n:'탈분극 (Depolarization)',c:'#34d399',i:2};
+  if(t<.58)return{n:'재분극 (Repolarization)',c:'#60a5fa',i:3};
+  if(t<.72)return{n:'과분극 (Hyperpolarization)',c:'#c084fc',i:4};
+  if(t<.95)return{n:'Na⁺/K⁺ 펌프 회복',c:'#a78bfa',i:5};
+  return{n:'휴지기 복귀',c:'#94a3b8',i:0};
+}
+
+// ═══ CANVAS ═══
+const mC=document.getElementById('mC'),mx=mC.getContext('2d');
+const gC=document.getElementById('gC'),gx=gC.getContext('2d');
+function rsz(){const d=devicePixelRatio||1;[mC,gC].forEach(c=>{c.width=c.clientWidth*d;c.height=c.clientHeight*d;c.getContext('2d').setTransform(d,0,0,d,0,0)})}
+window.addEventListener('resize',()=>{rsz();build()});
+
+// ═══ ION SYSTEM ═══
+// state: 'idle' | 'approach' | 'channel' | 'disperse'
+// approach: moving toward channel entry
+// channel: passing through pore
+// disperse: exiting into new zone with high velocity to spread out
+let ions=[], nid=0;
+
+function dims(){
+  const w=mC.clientWidth,h=mC.clientHeight,mY=h*.47,mH=24;
+  return{w,h,mY,mH, oT:10, oB:mY-mH-4, iT:mY+mH+4, iB:h-10};
+}
+function chP(){
+  const D=dims();
+  return{naX:D.w*.25, kX:D.w*.52, lkX:D.w*.74, pmX:D.w*.91, mY:D.mY, mH:D.mH};
+}
+
+function build(){
+  ions=[];nid=0;const D=dims();
+  for(let i=0;i<I_NAO;i++)ions.push(mk('na','out',D));
+  for(let i=0;i<I_NAI;i++)ions.push(mk('na','in',D));
+  for(let i=0;i<I_KI;i++)ions.push(mk('k','in',D));
+  for(let i=0;i<I_KO;i++)ions.push(mk('k','out',D));
+}
+function mk(type,zone,D){
+  const yA=zone==='out'?D.oT:D.iT, yB=zone==='out'?D.oB:D.iB;
+  return{id:nid++,type,zone,state:'idle',
+    x:12+Math.random()*(D.w-24), y:yA+Math.random()*(yB-yA),
+    vx:(Math.random()-.5)*.5, vy:(Math.random()-.5)*.5,
+    ox:0,oy:0, tx:0,ty:0, prog:0, ch:null, energy:0 // energy = post-transit dispersion vigor
+  };
+}
+
+// ═══ SPATIAL GRID for neighbor repulsion ═══
+const GRID_S=30;
+let grid={};
+function gridKey(x,y){return((x/GRID_S)|0)+','+((y/GRID_S)|0)}
+function buildGrid(){
+  grid={};
+  ions.forEach(p=>{
+    const k=gridKey(p.x,p.y);
+    if(!grid[k])grid[k]=[];
+    grid[k].push(p);
+  });
+}
+function neighbors(p){
+  const cx=(p.x/GRID_S)|0, cy=(p.y/GRID_S)|0;
+  let nb=[];
+  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+    const k=(cx+dx)+','+(cy+dy);
+    if(grid[k])nb.push(...grid[k]);
+  }
+  return nb;
+}
+
+// ═══ SYNC: decide which ions to move ═══
+function sync(){
+  const D=dims(),C=chP();
+  const needNaIn=tNaIn(TT), needKOut=tKOut(TT);
+
+  const cNaIn=ions.filter(p=>p.type==='na'&&p.zone==='in'&&p.state==='idle').length;
+  const cNaTransIn=ions.filter(p=>p.type==='na'&&p.state!=='idle'&&(p.zone==='toIn'||p.zone==='in'&&p.state!=='idle')).length;
+  // simpler: count "effectively in"
+  const effNaIn=ions.filter(p=>p.type==='na'&&(p.zone==='in'||(p.state!=='idle'&&p.targetZone==='in'))).length;
+
+  // Use a simpler approach: count idle in target zone
+  const idleNaIn=ions.filter(p=>p.type==='na'&&p.zone==='in'&&p.state==='idle').length;
+  const movingNaIn=ions.filter(p=>p.type==='na'&&p.state!=='idle'&&p.tgtZ==='in').length;
+  let dnNa=needNaIn-(idleNaIn+movingNaIn);
+
+  if(dnNa>0){
+    // Move Na+ outside → inside via Na channel
+    const av=ions.filter(p=>p.type==='na'&&p.zone==='out'&&p.state==='idle')
+      .sort((a,b)=>dist(a,C.naX,C.mY)-dist(b,C.naX,C.mY));
+    for(let i=0;i<Math.min(dnNa,av.length,3);i++) startMove(av[i],'in',C.naX,C.mY,D,'naCh');
+  } else if(dnNa<0){
+    // Pump Na+ back out
+    const av=ions.filter(p=>p.type==='na'&&p.zone==='in'&&p.state==='idle')
+      .sort((a,b)=>dist(a,C.pmX,C.mY)-dist(b,C.pmX,C.mY));
+    for(let i=0;i<Math.min(-dnNa,av.length,2);i++) startMove(av[i],'out',C.pmX,C.mY,D,'pump');
+  }
+
+  const idleKOut=ions.filter(p=>p.type==='k'&&p.zone==='out'&&p.state==='idle').length;
+  const movingKOut=ions.filter(p=>p.type==='k'&&p.state!=='idle'&&p.tgtZ==='out').length;
+  let dnK=needKOut-(idleKOut+movingKOut);
+
+  if(dnK>0){
+    const av=ions.filter(p=>p.type==='k'&&p.zone==='in'&&p.state==='idle')
+      .sort((a,b)=>dist(a,C.kX,C.mY)-dist(b,C.kX,C.mY));
+    for(let i=0;i<Math.min(dnK,av.length,3);i++) startMove(av[i],'out',C.kX,C.mY,D,'kCh');
+  } else if(dnK<0){
+    const av=ions.filter(p=>p.type==='k'&&p.zone==='out'&&p.state==='idle')
+      .sort((a,b)=>dist(a,C.pmX,C.mY)-dist(b,C.pmX,C.mY));
+    for(let i=0;i<Math.min(-dnK,av.length,2);i++) startMove(av[i],'in',C.pmX,C.mY,D,'pump');
+  }
+}
+
+function dist(p,x,y){return Math.hypot(p.x-x,p.y-y)}
+
+function startMove(ion,tgtZ,chX,chMY,D,ch){
+  ion.state='approach';
+  ion.tgtZ=tgtZ;
+  ion.ch=ch;
+  ion.prog=0;
+  ion.ox=ion.x; ion.oy=ion.y;
+  ion.chX=chX; ion.chMY=chMY;
+  // Final target position — random spot in target zone, far from channel to encourage spreading
+  const yA=tgtZ==='in'?D.iT:D.oT, yB=tgtZ==='in'?D.iB:D.oB;
+  ion.tx=20+Math.random()*(D.w-40);
+  ion.ty=yA+Math.random()*(yB-yA);
+}
+
+// ═══ UPDATE IONS ═══
+function updateIons(){
+  const D=dims(), C=chP();
+  buildGrid();
+
+  ions.forEach(p=>{
+    const r=p.type==='na'?NA_R:K_R;
+
+    if(p.state==='approach'){
+      // Move toward channel entrance
+      p.prog+=0.025;
+      const entY=p.tgtZ==='in'?(C.mY-C.mH-2):(C.mY+C.mH+2);
+      const f=Math.min(p.prog,1);
+      const ef=ease(f);
+      p.x=p.ox+(p.chX-p.ox)*ef;
+      p.y=p.oy+(entY-p.oy)*ef;
+      if(f>=1){p.state='channel';p.prog=0;p.ox=p.x;p.oy=p.y;}
+      return;
+    }
+
+    if(p.state==='channel'){
+      // Pass through pore
+      p.prog+=0.04;
+      const f=Math.min(p.prog,1);
+      const entY=p.tgtZ==='in'?(C.mY-C.mH):(C.mY+C.mH);
+      const exY=p.tgtZ==='in'?(C.mY+C.mH):(C.mY-C.mH);
+      p.x=p.chX+Math.sin(f*Math.PI*2)*1.5; // slight wobble in pore
+      p.y=entY+(exY-entY)*f;
+      if(f>=1){
+        // Enter disperse phase with HIGH energy
+        p.state='disperse';
+        p.prog=0;
+        p.zone=p.tgtZ;
+        p.ox=p.x;p.oy=p.y;
+        // Initial velocity burst away from channel
+        const angle=Math.atan2(p.ty-p.y,p.tx-p.x);
+        const speed=3+Math.random()*3;
+        p.vx=Math.cos(angle)*speed;
+        p.vy=Math.sin(angle)*speed;
+        p.energy=1.0; // high energy for dispersion
+      }
+      return;
+    }
+
+    if(p.state==='disperse'){
+      // Recently transported — high energy dispersal
+      p.energy*=0.985; // slowly lose energy
+      // Steer toward random target
+      const dx=p.tx-p.x, dy=p.ty-p.y;
+      const d=Math.hypot(dx,dy);
+      if(d>5){
+        p.vx+=dx/d*0.15*p.energy;
+        p.vy+=dy/d*0.15*p.energy;
+      }
+      // Brownian
+      p.vx+=(Math.random()-.5)*.3*p.energy;
+      p.vy+=(Math.random()-.5)*.3*p.energy;
+      // Damping
+      p.vx*=.94;p.vy*=.94;
+      p.x+=p.vx;p.y+=p.vy;
+
+      if(p.energy<0.05){p.state='idle';p.energy=0;}
+      confine(p,D);
+      return;
+    }
+
+    // ═══ IDLE: Brownian + electrostatic repulsion ═══
+    // Brownian force
+    p.vx+=(Math.random()-.5)*.12;
+    p.vy+=(Math.random()-.5)*.12;
+
+    // Repulsion from same-charge neighbors (like charges repel)
+    const nbs=neighbors(p);
+    for(let i=0;i<nbs.length;i++){
+      const q=nbs[i];
+      if(q.id===p.id)continue;
+      if(q.state!=='idle'&&q.state!=='disperse')continue;
+      const dx=p.x-q.x, dy=p.y-q.y;
+      const dd=dx*dx+dy*dy;
+      const minD=(r+(q.type==='na'?NA_R:K_R))*2.2;
+      if(dd<minD*minD&&dd>0.1){
+        const d=Math.sqrt(dd);
+        const force=0.3*((minD-d)/minD);
+        p.vx+=dx/d*force;
+        p.vy+=dy/d*force;
+      }
+    }
+
+    // Gentle spreading force — push away from local density center
+    let lcx=0,lcy=0,lc=0;
+    for(let i=0;i<nbs.length;i++){
+      const q=nbs[i];
+      if(q.id===p.id||q.zone!==p.zone)continue;
+      if(q.state!=='idle'&&q.state!=='disperse')continue;
+      lcx+=q.x;lcy+=q.y;lc++;
+    }
+    if(lc>2){
+      lcx/=lc;lcy/=lc;
+      const dx=p.x-lcx,dy=p.y-lcy;
+      const d=Math.hypot(dx,dy);
+      if(d>0.1&&d<60){
+        p.vx+=dx/d*0.04;
+        p.vy+=dy/d*0.04;
+      }
+    }
+
+    // Damping
+    p.vx*=.93;p.vy*=.93;
+    p.x+=p.vx;p.y+=p.vy;
+    confine(p,D);
+  });
+}
+
+function confine(p,D){
+  const yA=p.zone==='out'?D.oT:D.iT, yB=p.zone==='out'?D.oB:D.iB;
+  if(p.y<yA){p.y=yA+1;p.vy=Math.abs(p.vy)*.4}
+  if(p.y>yB){p.y=yB-1;p.vy=-Math.abs(p.vy)*.4}
+  if(p.x<8){p.x=9;p.vx=Math.abs(p.vx)*.4}
+  if(p.x>D.w-8){p.x=D.w-9;p.vx=-Math.abs(p.vx)*.4}
+}
+
+function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+
+// ═══ FORCE SYNC (scrubbing) ═══
+function forceSync(){
+  const D=dims();const need_naIn=tNaIn(TT),need_kOut=tKOut(TT);
+  ions.forEach(p=>{if(p.state!=='idle'){p.state='idle';p.energy=0}});
+  let naIn=ions.filter(p=>p.type==='na'&&p.zone==='in').length;
+  while(naIn<need_naIn){const i=ions.find(p=>p.type==='na'&&p.zone==='out'&&p.state==='idle');if(!i)break;i.zone='in';i.y=D.iT+5+Math.random()*(D.iB-D.iT-10);i.x=12+Math.random()*(D.w-24);naIn++}
+  while(naIn>need_naIn){const i=ions.find(p=>p.type==='na'&&p.zone==='in'&&p.state==='idle');if(!i)break;i.zone='out';i.y=D.oT+5+Math.random()*(D.oB-D.oT-10);i.x=12+Math.random()*(D.w-24);naIn--}
+  let kOut=ions.filter(p=>p.type==='k'&&p.zone==='out').length;
+  while(kOut<need_kOut){const i=ions.find(p=>p.type==='k'&&p.zone==='in'&&p.state==='idle');if(!i)break;i.zone='out';i.y=D.oT+5+Math.random()*(D.oB-D.oT-10);i.x=12+Math.random()*(D.w-24);kOut++}
+  while(kOut>need_kOut){const i=ions.find(p=>p.type==='k'&&p.zone==='out'&&p.state==='idle');if(!i)break;i.zone='in';i.y=D.iT+5+Math.random()*(D.iB-D.iT-10);i.x=12+Math.random()*(D.w-24);kOut--}
+}
+
+// ═══ DRAW MEMBRANE ═══
+function drawM(){
+  const D=dims(),C=chP(),ctx=mx,{w,h,mY,mH}=D;
+  ctx.clearRect(0,0,w,h);
+
+  // Tints
+  ctx.fillStyle='rgba(14,165,233,.02)';ctx.fillRect(0,0,w,mY-mH);
+  ctx.fillStyle='rgba(139,92,246,.02)';ctx.fillRect(0,mY+mH,w,h-mY-mH);
+  ctx.font='600 9px JetBrains Mono';ctx.fillStyle='rgba(255,255,255,.07)';ctx.textAlign='left';
+  ctx.fillText('OUTSIDE  [Na⁺ 고농도]',8,15);ctx.fillText('INSIDE  [K⁺ 고농도]',8,h-5);
+
+  // Charge signs
+  const mv=ap(TT);
+  ctx.font='bold 12px JetBrains Mono';ctx.fillStyle='rgba(255,255,255,.04)';ctx.textAlign='center';
+  for(let i=0;i<7;i++){const cx=w*.07+i*w*.13;ctx.fillText(mv>-10?'−':'+',cx,mY-mH-10);ctx.fillText(mv>-10?'+':'−',cx,mY+mH+20)}
+
+  // Membrane
+  const gr=ctx.createLinearGradient(0,mY-mH,0,mY+mH);
+  gr.addColorStop(0,'#806040');gr.addColorStop(.35,'#b89870');gr.addColorStop(.5,'#d0b898');gr.addColorStop(.65,'#b89870');gr.addColorStop(1,'#806040');
+  ctx.fillStyle=gr;ctx.fillRect(0,mY-mH,w,mH*2);
+  for(let x=3;x<w;x+=9){ctx.beginPath();ctx.arc(x,mY-mH+2,3,0,Math.PI*2);ctx.fillStyle='#6a4e30';ctx.fill();ctx.beginPath();ctx.arc(x,mY+mH-2,3,0,Math.PI*2);ctx.fill()}
+
+  // Channels
+  const naG=gNa(TT),kG=gK(TT),pr=pRate(TT);
+  drawCh(ctx,C.naX,mY,mH,'#34d399',naG,'V-gated Na⁺',TT>.30&&TT<.70&&naG<.3);
+  drawCh(ctx,C.kX,mY,mH,'#60a5fa',kG,'V-gated K⁺',false);
+  drawLk(ctx,C.lkX,mY,mH);
+  drawPm(ctx,C.pmX,mY,mH,pr);
+
+  // ── IONS ──
+  // Draw trails for dispersing ions
+  ions.forEach(p=>{
+    if(p.state==='disperse'&&p.energy>.2){
+      const r=p.type==='na'?NA_R:K_R;
+      const col=p.type==='na'?'rgba(240,171,252,':'rgba(125,211,252,';
+      // Motion trail
+      ctx.beginPath();
+      ctx.moveTo(p.x-p.vx*3,p.y-p.vy*3);
+      ctx.lineTo(p.x,p.y);
+      ctx.strokeStyle=col+(p.energy*.3)+')';
+      ctx.lineWidth=r*1.2;ctx.lineCap='round';ctx.stroke();
+    }
+  });
+
+  ions.forEach(p=>{
+    if(p.state==='approach'||p.state==='channel'||p.state==='disperse'||p.state==='idle'){
+      const r=p.type==='na'?NA_R:K_R;
+      const col=p.type==='na'?'#f0abfc':'#7dd3fc';
+      const active=p.state!=='idle';
+      ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);
+      ctx.fillStyle=col;
+      if(active){ctx.shadowColor=col;ctx.shadowBlur=p.state==='disperse'?p.energy*18:10}
+      else{ctx.shadowColor=col;ctx.shadowBlur=2}
+      ctx.fill();ctx.shadowBlur=0;
+      if(p.state==='channel'){ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1.5;ctx.stroke()}
+      else if(p.state==='disperse'&&p.energy>.3){ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;ctx.stroke()}
+      ctx.fillStyle='rgba(255,255,255,.85)';
+      ctx.font=`bold ${Math.round(r*1.3)}px JetBrains Mono`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('+',p.x,p.y+.5);
+    }
+  });
+  ctx.textBaseline='alphabetic';
+
+  // Flow arrows
+  if(naG>.15)drawFA(ctx,C.naX,mY,mH,true,naG,'#f0abfc');
+  if(kG>.15)drawFA(ctx,C.kX,mY,mH,false,kG,'#7dd3fc');
+  if(pr>.1){drawFA(ctx,C.pmX-5,mY,mH,false,pr*.5,'#f0abfc');drawFA(ctx,C.pmX+5,mY,mH,true,pr*.5,'#7dd3fc')}
+
+  // Counts
+  const naO=ions.filter(p=>p.type==='na'&&p.zone==='out').length+ions.filter(p=>p.type==='na'&&p.tgtZ==='out'&&p.state!=='idle').length;
+  const naI=T_NA-naO;
+  const kO=ions.filter(p=>p.type==='k'&&p.zone==='out').length+ions.filter(p=>p.type==='k'&&p.tgtZ==='out'&&p.state!=='idle').length;
+  const kI=T_K-kO;
+
+  ctx.font='600 9px JetBrains Mono';ctx.textAlign='right';
+  ctx.fillStyle='rgba(240,171,252,.5)';ctx.fillText(`Na⁺×${naO}`,w-8,15);
+  ctx.fillStyle='rgba(125,211,252,.5)';ctx.fillText(`K⁺×${kO}`,w-8,26);
+  ctx.fillStyle='rgba(240,171,252,.5)';ctx.fillText(`Na⁺×${naI}`,w-8,h-17);
+  ctx.fillStyle='rgba(125,211,252,.5)';ctx.fillText(`K⁺×${kI}`,w-8,h-6);
+
+  ctx.fillStyle='rgba(255,255,255,.04)';ctx.font='7px JetBrains Mono';ctx.textAlign='left';
+  ctx.fillText(`Σ Na⁺=${naO+naI}/${T_NA}  K⁺=${kI+kO}/${T_K}`,8,h-17);
+
+  updConc(naO,naI,kO,kI);
+}
+
+function drawCh(ctx,x,mY,mH,col,op,lbl,inact){
+  const chH=mH*2+14,topY=mY-mH-7,gap=3+op*17,hw=17;
+  if(op>.1){ctx.shadowColor=col;ctx.shadowBlur=op*18}
+  ctx.fillStyle=col;ctx.globalAlpha=.75;
+  rr(ctx,x-hw,topY,hw-gap/2,chH,4);ctx.fill();rr(ctx,x+gap/2,topY,hw-gap/2,chH,4);ctx.fill();
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
+  if(op<.15&&!inact){ctx.fillStyle='rgba(248,113,113,.5)';ctx.fillRect(x-5,mY-1.5,10,3)}
+  if(inact){ctx.fillStyle='rgba(248,113,113,.7)';ctx.fillRect(x-9,topY+chH-5,18,4);ctx.fillStyle='rgba(248,113,113,.55)';ctx.font='600 6px Noto Sans KR';ctx.textAlign='center';ctx.fillText('비활성화',x,topY+chH+8)}
+  ctx.fillStyle='#fff';ctx.font='bold 8px JetBrains Mono';ctx.textAlign='center';ctx.fillText(lbl,x,topY-7);
+  ctx.fillStyle=op>.3?col:'rgba(255,255,255,.2)';ctx.font='600 7px JetBrains Mono';
+  ctx.fillText(op>.1?`${Math.round(op*100)}%`:'CLOSED',x,topY+chH+(inact?18:12));
+}
+function drawLk(ctx,x,mY,mH){
+  const chH=mH*2+14,topY=mY-mH-7,gap=6,hw=10;
+  ctx.fillStyle='#fbbf24';ctx.globalAlpha=.5;
+  rr(ctx,x-hw,topY,hw-gap/2,chH,3);ctx.fill();rr(ctx,x+gap/2,topY,hw-gap/2,chH,3);ctx.fill();
+  ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.font='bold 7px JetBrains Mono';ctx.textAlign='center';
+  ctx.fillText('K⁺ Leak',x,topY-7);ctx.fillStyle='rgba(251,191,36,.4)';ctx.font='600 6px Noto Sans KR';ctx.fillText('항상 열림',x,topY+chH+9);
+}
+function drawPm(ctx,x,mY,mH,rate){
+  const r=19;
+  if(rate>.1){ctx.shadowColor='#a78bfa';ctx.shadowBlur=rate*16}
+  ctx.fillStyle=rate>.1?'rgba(167,139,250,.3)':'rgba(167,139,250,.12)';
+  ctx.strokeStyle=rate>.1?'rgba(167,139,250,.5)':'rgba(167,139,250,.2)';
+  ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,mY,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;
+  if(rate>.1){const a=(Date.now()/400)%(Math.PI*2);ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,mY,r-5,a,a+Math.PI*.7);ctx.stroke()}
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='bold 6px JetBrains Mono';ctx.textAlign='center';
+  ctx.fillText('Na⁺/K⁺',x,mY-3);ctx.fillText('ATPase',x,mY+5);
+  if(rate>.1){ctx.fillStyle='#a78bfa';ctx.font='600 6px Noto Sans KR';ctx.fillText('3Na⁺↑ 2K⁺↓',x,mY+r+10)}
+}
+function drawFA(ctx,x,mY,mH,inw,str,col){
+  const now=Date.now();for(let i=0;i<3;i++){const ph=((now/350+i*.33)%1);
+  const sY=inw?mY-mH-16:mY+mH+16,eY=inw?mY+mH+16:mY-mH-16;const ay=sY+(eY-sY)*ph;
+  ctx.save();ctx.globalAlpha=str*(1-ph)*.5;ctx.fillStyle=col;const d=inw?1:-1;
+  ctx.beginPath();ctx.moveTo(x,ay+d*5);ctx.lineTo(x-4,ay-d*2);ctx.lineTo(x+4,ay-d*2);ctx.closePath();ctx.fill();ctx.restore()}}
+function rr(ctx,x,y,w,h,r){if(w<1)return;ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
+
+function updConc(naO,naI,kO,kI){
+  document.getElementById('cB').innerHTML=
+    `<span class="ci" style="color:#f0abfc">Na⁺out <b>${Math.round(145*naO/I_NAO)}mM</b></span>`+
+    `<span class="ci" style="color:#f0abfc">Na⁺in <b>${Math.round(12*naI/I_NAI)}mM</b></span>`+
+    `<span class="ci" style="color:#7dd3fc">K⁺in <b>${Math.round(155*kI/I_KI)}mM</b></span>`+
+    `<span class="ci" style="color:#7dd3fc">K⁺out <b>${Math.round(4*kO/I_KO)}mM</b></span>`;
+}
+
+// ═══ DRAW GRAPH ═══
+function drawG(){
+  const w=gC.clientWidth,h=gC.clientHeight,ctx=gx;
+  const p={t:24,r:18,b:32,l:44},gw=w-p.l-p.r,gh=h-p.t-p.b;
+  ctx.clearRect(0,0,w,h);
+  const tx=t=>p.l+t*gw,ty=v=>p.t+gh*(1-(v+95)/140);
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+  [-80,-70,-55,-40,-20,0,20,30].forEach(v=>{ctx.beginPath();ctx.moveTo(p.l,ty(v));ctx.lineTo(w-p.r,ty(v));ctx.stroke()});
+  ctx.fillStyle='rgba(255,255,255,.18)';ctx.font='9px JetBrains Mono';ctx.textAlign='right';
+  [30,0,-55,-70,-80].forEach(v=>ctx.fillText(v,p.l-4,ty(v)+3));
+  ctx.strokeStyle='rgba(255,255,255,.1)';ctx.beginPath();ctx.moveTo(p.l,p.t);ctx.lineTo(p.l,h-p.b);ctx.lineTo(w-p.r,h-p.b);ctx.stroke();
+  ctx.save();ctx.translate(10,h/2);ctx.rotate(-Math.PI/2);ctx.fillStyle='rgba(255,255,255,.1)';ctx.font='9px Noto Sans KR';ctx.textAlign='center';ctx.fillText('mV',0,0);ctx.restore();
+  ctx.strokeStyle='rgba(248,113,113,.25)';ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(p.l,ty(-55));ctx.lineTo(w-p.r,ty(-55));ctx.stroke();ctx.setLineDash([]);
+
+  // Full dim
+  ctx.beginPath();ctx.strokeStyle='rgba(52,211,153,.08)';ctx.lineWidth=2;
+  for(let i=0;i<=400;i++){const tt=i/400;i===0?ctx.moveTo(tx(tt),ty(ap(tt))):ctx.lineTo(tx(tt),ty(ap(tt)))}ctx.stroke();
+  // Bright
+  if(TT>0){ctx.beginPath();ctx.strokeStyle='#34d399';ctx.lineWidth=2.5;ctx.shadowColor='#34d399';ctx.shadowBlur=5;
+  const st=Math.floor(TT*400);for(let i=0;i<=st;i++){const tt=i/400;i===0?ctx.moveTo(tx(tt),ty(ap(tt))):ctx.lineTo(tx(tt),ty(ap(tt)))}ctx.stroke();ctx.shadowBlur=0}
+
+  // Conductance + pump
+  const cY=h-p.b-22;
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.strokeStyle='rgba(52,211,153,.3)';for(let i=0;i<=200;i++){const tt=i/200;i===0?ctx.moveTo(tx(tt),cY+18*(1-gNa(tt))):ctx.lineTo(tx(tt),cY+18*(1-gNa(tt)))}ctx.stroke();
+  ctx.beginPath();ctx.strokeStyle='rgba(96,165,250,.3)';for(let i=0;i<=200;i++){const tt=i/200;i===0?ctx.moveTo(tx(tt),cY+18*(1-gK(tt))):ctx.lineTo(tx(tt),cY+18*(1-gK(tt)))}ctx.stroke();
+  ctx.beginPath();ctx.strokeStyle='rgba(167,139,250,.25)';ctx.setLineDash([3,3]);for(let i=0;i<=200;i++){const tt=i/200;i===0?ctx.moveTo(tx(tt),cY+18*(1-pRate(tt))):ctx.lineTo(tx(tt),cY+18*(1-pRate(tt)))}ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(52,211,153,.25)';ctx.font='7px JetBrains Mono';ctx.textAlign='left';ctx.fillText('gNa',p.l+2,cY-2);
+  ctx.fillStyle='rgba(96,165,250,.25)';ctx.fillText('gK',p.l+22,cY-2);
+  ctx.fillStyle='rgba(167,139,250,.25)';ctx.fillText('pump',p.l+38,cY-2);
+
+  // Dot
+  const cmv=ap(TT),cx=tx(TT),cy=ty(cmv);
+  ctx.strokeStyle='rgba(6,182,212,.12)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(cx,p.t);ctx.lineTo(cx,h-p.b);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle='#06b6d4';ctx.shadowColor='#06b6d4';ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+
+  [{t:.04,n:'휴지'},{t:.11,n:'역치'},{t:.22,n:'탈분극'},{t:.43,n:'재분극'},{t:.63,n:'과분극'},{t:.82,n:'펌프회복'},{t:.97,n:'완료'}].forEach(q=>{
+    const px=tx(q.t),cur=Math.abs(q.t-TT)<.07;ctx.fillStyle=cur?'rgba(255,255,255,.45)':'rgba(255,255,255,.07)';
+    ctx.font=`${cur?'600':'400'} 8px Noto Sans KR`;ctx.textAlign='center';ctx.fillText(q.n,px,h-p.b+12)});
+}
+
+// ═══ UI ═══
+function updUI(){
+  const mv=ap(TT),ph=phI(TT),naG=gNa(TT),kG=gK(TT),pr=pRate(TT);
+  const e=document.getElementById('mD');e.textContent=`${mv>0?'+':''}${Math.round(mv)} mV`;e.style.color=mv>0?'#34d399':mv>-60?'#fbbf24':'#06b6d4';
+  document.getElementById('pL').textContent=ph.n;document.getElementById('pL').style.color=ph.c;
+  document.getElementById('sl').value=Math.round(TT*10000);document.getElementById('tL').textContent=`${(TT*8).toFixed(1)}ms`;
+
+  const nS=naG>.5?'<strong style="color:#34d399">열림</strong>':naG>.1?'<strong style="color:#fbbf24">개방중</strong>':(TT>.30&&TT<.70)?'<strong style="color:#f87171">비활성화</strong>':'닫힘';
+  const kS=kG>.5?'<strong style="color:#60a5fa">열림</strong>':kG>.1?'<strong style="color:#fbbf24">개방중</strong>':'닫힘';
+  const pS=pr>.3?'<strong style="color:#a78bfa">가동중</strong>':'대기';
+  document.getElementById('sT').innerHTML=`Na⁺ch: ${nS} | K⁺ch: ${kS}<br>Leak: <strong style="color:#fbbf24">열림</strong> | 펌프: ${pS}`;
+
+  const iTxt={0:'K⁺ leak으로 소량 유출. ATPase가 농도 유지.',1:'자극→역치(-55mV). Na⁺ch 활성화 시작.',2:'Na⁺ 급속 유입 후 <strong>세포 내부로 확산</strong>.',3:'K⁺가 채널 통과 후 <strong>세포 외부로 확산</strong>. Na⁺ch 비활성화.',4:'K⁺ch 느리게 닫힘. K⁺ 추가 유출→과분극.',5:'<strong>Na⁺/K⁺ ATPase</strong>: Na⁺ 3개 외부로, K⁺ 2개 내부로 능동수송하여 원래 농도 복원.'};
+  document.getElementById('iT').innerHTML=iTxt[ph.i]||iTxt[0];
+  const dTxt={0:'Na⁺ 외 145mM/내 12mM, K⁺ 내 155mM/외 4mM.',1:'<strong>All-or-None</strong>. 역치 이상→완전한 AP.',2:'m-gate↑ h-gate↓. 양성 피드백. 이온은 채널 통과 후 농도 기울기따라 확산.',3:'<strong>절대불응기</strong>. h-gate 닫힘.',4:'<strong>상대불응기</strong>.',5:'ATP 1분자당 3Na⁺↑2K⁺↓. 펌프 후 이온이 구획 내 균일하게 확산.'};
+  document.getElementById('dT').innerHTML=dTxt[ph.i]||dTxt[0];
+
+  const naO=ions.filter(p=>p.type==='na'&&p.zone==='out').length;
+  const naI=ions.filter(p=>p.type==='na'&&p.zone==='in').length;
+  const kI=ions.filter(p=>p.type==='k'&&p.zone==='in').length;
+  const kO=ions.filter(p=>p.type==='k'&&p.zone==='out').length;
+  const transit=ions.filter(p=>p.state!=='idle').length;
+  document.getElementById('pT').innerHTML=
+    `<span style="color:#f0abfc">Na⁺</span> 외${naO} 내${naI} (Σ${T_NA}) | <span style="color:#7dd3fc">K⁺</span> 내${kI} 외${kO} (Σ${T_K})<br>이동중: <strong>${transit}</strong>개 | 생성·소멸 없음`;
+}
+
+// ═══ CONTROLS ═══
+function tog(){playing=!playing;document.getElementById('pB').textContent=playing?'⏸':'▶ 재생';if(playing&&TT>=.99){TT=0;build()}lastF=performance.now()}
+function ss(s){spd=s;document.querySelectorAll('.sb[data-s]').forEach(b=>b.classList.toggle('a',parseFloat(b.dataset.s)===s))}
+function scr(v){TT=v/10000;forceSync();playing=false;document.getElementById('pB').textContent='▶ 재생'}
+function rst(){TT=0;playing=false;document.getElementById('pB').textContent='▶ 재생';build()}
+
+// ═══ LOOP ═══
+function loop(now){
+  if(playing){const dt=(now-lastF)/1000;lastF=now;TT+=dt/(DUR/1000)*spd;if(TT>=1){TT=1;playing=false;document.getElementById('pB').textContent='▶ 재생'}}
+  if(playing)sync();
+  updateIons();drawM();drawG();updUI();
+  requestAnimationFrame(loop);
+}
+
+rsz();build();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
